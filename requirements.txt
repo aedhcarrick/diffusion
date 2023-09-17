@@ -1,11 +1,16 @@
 # requirements.txt
 
+clip
+diffusers
 einops>=0.6.1
+kornia
 numpy>=1.26
 pytorch-lightning>=2.0
 pyyaml>=6.0
 omegaconf>=2.3
 opencv-python>=4.8
+taming-transformers-rom1504
 torch>=2.0
 tqdm>=4
+
 
