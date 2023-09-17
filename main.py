@@ -148,7 +148,7 @@ def main():
 	parser.add_argument(
 		"--ckpt",
 		type=str,
-		default="models/ldm/checkpoints/model.ckpt",
+		default="models/checkpoints/model.ckpt",
 		help="path to checkpoint of model",
 	)
 	parser.add_argument(
