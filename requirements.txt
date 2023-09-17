@@ -4,7 +4,7 @@ clip
 diffusers
 einops>=0.6.1
 kornia
-numpy>=1.26
+numpy==1.23.5
 pytorch-lightning>=2.0
 pyyaml>=6.0
 omegaconf>=2.3
