@@ -58,7 +58,7 @@ class Sampler():
 
 
 class Options():
-	def __init__(self):
+	def __init__(self, **kwargs):
 		self.prompt: str = "a painting of a dog eating nachos"
 		self.output_dir: str = "outputs"
 		self.config: str = "configs/stable-diffusion/v1-inference.yaml"
@@ -75,6 +75,7 @@ class Options():
 		self.batch_size: int = 4
 		self.seed: int = 42
 		self.precision: Literal["full", "autocast"] = "autocast"
+		self.__dict__.update(kwargs)
 
 	def set_diffuser(self, diff_name: str):
 		self.diffuser = Diffuser(diff_name)
@@ -82,8 +83,7 @@ class Options():
 	def set_sampler(self, samp_name: str):
 		self.sampler = Sampler(samp_name)
 
-def main():
-	opt = Options()
+def txt2img(opt: Options):
 	seed_everything(opt.seed)
 
 	# get model
@@ -155,4 +155,5 @@ def main():
 
 
 if __name__ == "__main__":
-	main()
+	txt2img(sys.argv[1:])
+
