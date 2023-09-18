@@ -10,6 +10,7 @@ from tqdm import tqdm, trange
 from itertools import islice
 from einops import rearrange
 import time
+from typing import Literal, Union
 from pytorch_lightning import seed_everything
 from torch import autocast
 from contextlib import contextmanager, nullcontext
@@ -94,11 +95,12 @@ def main():
 	# get sampler
 	if not opt.sampler:
 		opt.sampler = Sampler('DDIM')
-	sampler = opt.sampler.getSampler(model)
+	sampler = opt.sampler.get_sampler(model)
 
 	# create output
-	os.makedirs(opt.outdir, exist_ok=True)
-	outpath = opt.outdir
+	os.makedirs(opt.output_dir, exist_ok=True)
+	outpath = opt.output_dir
+	base_count = len(os.listdir(outpath))
 
 	# get prompt
 	assert opt.prompt is not None
@@ -107,7 +109,7 @@ def main():
 
 	start_code = None
 #	if opt.fixed_code:
-#		start_code = torch.randn([opt.batch_size, opt.channels, opt.height // opt.guidance, opt.width // opt.guidance], device=device)
+#		start_code = torch.randn([opt.batch_size, opt.channels, opt.height // opt.downsampling, opt.width // opt.down_sampling], device=device)
 
 	precision_scope = autocast if opt.precision=="autocast" else nullcontext
 	with torch.no_grad():
@@ -123,7 +125,7 @@ def main():
 						if isinstance(prompts, tuple):
 							prompts = list(prompts)
 						c = model.get_learned_conditioning(prompts)
-						shape = [opt.channels, opt.height // opt.guidance, opt.width // opt.guidance]
+						shape = [opt.channels, opt.height // opt.down_sampling, opt.width // opt.down_sampling]
 						samples, _ = sampler.sample(
 								S = opt.steps,
 								conditioning = c,
@@ -145,7 +147,7 @@ def main():
 						for x_sample in x_image_torch:
 							x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
 							img = Image.fromarray(x_sample.astype(np.uint8))
-							img.save(os.path.join(sample_path, f"{base_count:03}.png"))
+							img.save(os.path.join(outpath, f"{base_count:03}.png"))
 							base_count += 1
 				toc = time.time()
 
