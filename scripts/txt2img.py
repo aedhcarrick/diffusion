@@ -1,24 +1,23 @@
-#   models.py
+# txt2img.py
 
-import os, sys, glob
 import cv2
-import torch
+import glob
 import numpy as np
+import os
+import sys
+import time
+import torch
+
+from contextlib import contextmanager, nullcontext
+from einops import rearrange
+from itertools import islice
+from ldm.util import instantiate_from_config
 from omegaconf import OmegaConf
 from PIL import Image
-from tqdm import tqdm, trange
-from itertools import islice
-from einops import rearrange
-import time
-from typing import Literal, Union
 from pytorch_lightning import seed_everything
+from scripts.jobs import Options, Sampler
 from torch import autocast
-from contextlib import contextmanager, nullcontext
-
-from ldm.util import instantiate_from_config
-from ldm.models.diffusion.ddim import DDIMSampler
-from ldm.models.diffusion.plms import PLMSSampler
-from ldm.models.diffusion.dpm_solver import DPMSolverSampler
+from tqdm import tqdm, trange
 
 
 def chunk(it, size):
@@ -44,46 +43,8 @@ def load_model_from_config(config, ckpt, verbose=False):
 	model.eval()
 	return model
 
-class Sampler():
-	def __init__(self, name: Literal["DPM", "PLMS", "DDIM"]):
-		self.name = name
 
-	def get_sampler(self, model):
-		if self.name == "DPM":
-			return DPMSolverSampler(model)
-		elif self.name == "PLMS":
-			return PLMSSampler(model)
-		else:
-			return DDIMSampler(model)
-
-
-class Options():
-	def __init__(self):
-		self.prompt: str = "a painting of a dog eating nachos"
-		self.output_dir: str = "outputs"
-		self.config: str = "configs/stable-diffusion/v1-inference.yaml"
-		self.model: str = "models/checkpoints/model.ckpt"
-		self.sampler: Union[None, Sampler] = None
-		self.iter: int = 2
-		self.steps: int = 50
-		self.eta: float = 0.0
-		self.height: int = 512
-		self.width: int = 512
-		self.channels: int = 4
-		self.down_sampling: int = 8
-		self.guidance: float = 7.5
-		self.batch_size: int = 4
-		self.seed: int = 42
-		self.precision: Literal["full", "autocast"] = "autocast"
-
-	def set_diffuser(self, diff_name: str):
-		self.diffuser = Diffuser(diff_name)
-
-	def set_sampler(self, samp_name: str):
-		self.sampler = Sampler(samp_name)
-
-def main():
-	opt = Options()
+def txt2img(opt: Options):
 	seed_everything(opt.seed)
 
 	# get model
@@ -151,8 +112,5 @@ def main():
 							base_count += 1
 				toc = time.time()
 
-	print(f"Output saved to: \n{outpath} \n")
+	return True
 
-
-if __name__ == "__main__":
-	main()
