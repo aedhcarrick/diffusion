@@ -36,13 +36,13 @@ class Options():
 		self.channels: int = 4
 		self.down_sampling: int = 8
 		self.guidance: float = 7.5
-		self.batch_size: int = 4
+		self.batch_size: int = 1
 		self.seed: int = 42
 		self.precision: Literal["full", "autocast"] = "autocast"
 		for key, value in settings.items():
 			if key == 'sampler':
 				self.set_sampler(settings['sampler'])
-			if hasattr(self, key):
+			elif hasattr(self, key):
 				setattr(self, key, value)
 
 	def set_sampler(self, samp_name: str):

@@ -12,6 +12,7 @@ def test_simple_job():
 		"width": 768,
 		"guidance": 7.5,
 		"seed": 42,
+		"batch_size": 1,
 	}
 	worker.submit_job('txt2img', job)
 	worker.run()
