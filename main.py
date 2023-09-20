@@ -2,6 +2,7 @@
 
 import os, sys, glob
 import cv2
+import random
 import torch
 import numpy as np
 from omegaconf import OmegaConf
@@ -73,7 +74,7 @@ class Options():
 		self.down_sampling: int = 8
 		self.guidance: float = 7.5
 		self.batch_size: int = 4
-		self.seed: int = 42
+		self.seed: int = random.randint(1,10000000)
 		self.precision: Literal["full", "autocast"] = "autocast"
 
 	def set_diffuser(self, diff_name: str):
