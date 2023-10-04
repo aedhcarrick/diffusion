@@ -51,18 +51,22 @@ class TextToImageOperation():
 		else:
 			return DDIMSampler(model)
 
-	def execute(self, model, device, outpath):
+	def execute(self, model, device, input_dir, output_dir):
 		sampler = self.get_sampler(model)
+
 		seed_everything(self.seed)
+
 		assert self.prompt is not None
 		data = [self.batch_size * [self.prompt]]
 
-		base_count = len(os.listdir(outpath))
+		base_count = len(os.listdir(output_dir))
 
 		start_code = None
 		if self.fixed_code:
 			start_code = torch.randn([self.batch_size, self.channels, self.height // self.down_sampling, self.width // self.down_sampling], device=device)
+
 		precision_scope = autocast if self.precision=="autocast" else nullcontext
+
 		with torch.no_grad():
 			with precision_scope("cuda"):
 				with model.ema_scope():
@@ -98,7 +102,7 @@ class TextToImageOperation():
 							for x_sample in x_image_torch:
 								x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
 								img = Image.fromarray(x_sample.astype(np.uint8))
-								img.save(os.path.join(outpath, f"{base_count:03}.png"))
+								img.save(os.path.join(output_dir, f"{base_count:03}.png"))
 								base_count += 1
 					toc = time.time()
 		return True
@@ -114,13 +118,12 @@ class ImageJob():
 				oper = TextToImageOperation(op)
 			self.operations.append(oper)
 
-	def run(self, manager):
+	def run(self, manager, input_dir, output_dir):
 		success = True
 		for oper in self.operations:
 			model = manager.get_loaded_model(oper.model)
 			device = manager.device
-			outpath = manager.output_dir
-			if not oper.execute(model, device, outpath):
+			if not oper.execute(model, device, input_dir, output_dir):
 				success = False
 		return success
 

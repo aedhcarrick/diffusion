@@ -8,6 +8,9 @@ def test_simple_job():
 	output_dir = 'outputs'
 	model_dir = 'models'
 	worker = ImageWorker(input_dir, output_dir, model_dir)
+
+	worker.start()
+
 	job = {
 		"job_type": "image",
 		"operations": [
@@ -24,6 +27,7 @@ def test_simple_job():
 			}
 		]
 	}
-	worker.submit_job(job)
-	worker.run()
 
+	worker.submit_job(job)
+
+	worker.stop()

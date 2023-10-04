@@ -6,6 +6,7 @@ import os
 import torch
 
 from ldm.util import instantiate_from_config
+from omegaconf import OmegaConf
 
 
 class LoadedModel():
@@ -17,16 +18,12 @@ class LoadedModel():
 
 
 class ModelManager():
-	def __init__(self, input_dir, output_dir, model_dir):
+	def __init__(self, model_dir):
 		self.log = logging.getLogger("Model Manager")
 		self.available_models = []
 		self.loaded_models = []
 		self.device = torch.device(torch.cuda.current_device())
-		self.input_dir = input_dir
-		self.output_dir = output_dir
 		self.model_dir = model_dir
-		os.makedirs(self.input_dir, exist_ok=True)
-		os.makedirs(self.output_dir, exist_ok=True)
 		self.get_available_models()
 
 	def get_available_models(self):
@@ -40,13 +37,14 @@ class ModelManager():
 		sd = pl_sd["state_dict"]
 		model = instantiate_from_config(config.model)
 		m, u = model.load_state_dict(sd, strict=False)
-		if len(m) > 0 and verbose:
-			print(f"missing keys:  {m}")
-		if len(u) > 0 and verbose:
-			print(f"unexpected keys:  {u}")
+		if len(m) > 0:
+			self.log.error(f"missing keys:  {m}")
+		if len(u) > 0:
+			self.log.error(f"unexpected keys:  {u}")
 
 		model.cuda()
 		model.eval()
+		model = model.to(device)
 		return model
 
 	def get_loaded_model(self, model_name):
@@ -58,7 +56,7 @@ class ModelManager():
 				return self.load_model(model)
 
 	def load_model(self, model_name):
-		config = 'configs/stable-diffusion/v1-inference.yaml'
+		config = OmegaConf.load('configs/stable-diffusion/v1-inference.yaml')
 		path_to_model = os.path.join(self.model_dir, model_name)
 		model = self.load_model_from_config(config, path_to_model)
 		loaded_model = LoadedModel(model_name, config, self.device, model)
