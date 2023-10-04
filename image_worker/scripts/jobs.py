@@ -115,16 +115,13 @@ class ImageJob():
 			self.operations.append(oper)
 
 	def run(self, manager):
+		success = True
 		for oper in self.operations:
-			try:
-				model = manager.get_loaded_model(oper.model)
-				device = manager.device
-				outpath = manager.output_dir
-				assert oper.execute(model, device, outpath)
-			except Exception as e:
-				print(f'job: {self.job_ID} halted.')
-				print(f'operation failed:  {e}')
-				return False
-		return True
+			model = manager.get_loaded_model(oper.model)
+			device = manager.device
+			outpath = manager.output_dir
+			if not oper.execute(model, device, outpath):
+				success = False
+		return success
 
 
