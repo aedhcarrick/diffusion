@@ -50,10 +50,10 @@ class ModelManager():
 		return model
 
 	def get_loaded_model(self, model_name):
-		for loaded_model in loaded_models:
+		for loaded_model in self.loaded_models:
 			if loaded_model.name == model_name:
 				return loaded_model.model
-		for model in available_models:
+		for model in self.available_models:
 			if model == model_name:
 				return self.load_model(model)
 
