@@ -2,7 +2,7 @@
 
 
 from queue import Queue
-from scripts.jobs import ImageJob
+from image_worker.scripts.jobs import ImageJob
 from model_manager.model_manager import ModelManager
 
 class ImageWorker():
