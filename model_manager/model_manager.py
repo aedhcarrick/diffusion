@@ -23,7 +23,7 @@ class ModelManager():
 		self.available_models = []
 		self.loaded_models = []
 		self.device = torch.device(torch.cuda.current_device())
-		self.model_dir = model_dir
+		self.model_dir = os.path.join(model_dir, 'checkpoints')
 		self.get_available_models()
 
 	def get_available_models(self):
@@ -44,7 +44,7 @@ class ModelManager():
 
 		model.cuda()
 		model.eval()
-		model = model.to(device)
+		model = model.to(self.device)
 		return model
 
 	def get_loaded_model(self, model_name):
