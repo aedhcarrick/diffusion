@@ -1,8 +1,11 @@
 #  model_manager.py
 
+
+from logging
 import torch
 
 from ldm.util import instantiate_from_config
+
 
 class LoadedModel():
 	def __init__(self, name, config, device, model):
@@ -14,13 +17,15 @@ class LoadedModel():
 
 class ModelManager():
 	def __init__(self, input_dir, output_dir, model_dir):
-		self.log = logger.getlogger("Model Manager")
+		self.log = logging.getLogger("Model Manager")
 		self.available_models = []
 		self.loaded_models = []
 		self.device = torch.device(torch.cuda.current_device())
 		self.input_dir = input_dir
 		self.output_dir = output_dir
 		self.model_dir = model_dir
+		os.makedirs(self.input_dir, exist_ok=True)
+		os.makedirs(self.output_dir, exist_ok=True)
 		self.get_available_models()
 
 	def get_available_models(self):
@@ -43,7 +48,7 @@ class ModelManager():
 		model.eval()
 		return model
 
-	def get_model(self, model_name):
+	def get_loaded_model(self, model_name):
 		for loaded_model in loaded_models:
 			if loaded_model.name == model_name:
 				return loaded_model.model

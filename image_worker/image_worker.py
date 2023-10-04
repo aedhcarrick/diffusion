@@ -3,8 +3,7 @@
 
 from queue import Queue
 from scripts.jobs import ImageJob
-from scripts.txt2img import txt2img
-
+from model_manager.model_manager import ModelManager
 
 class ImageWorker():
 	def __init__(self, input_dir, output_dir, path_to_models):

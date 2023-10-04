@@ -42,7 +42,6 @@ class TextToImageOperation():
 		self.precision: Literal["full", "autocast"] = "autocast"
 		for key, value in settings.items():
 			setattr(self, key, value)
-		os.makedirs(self.output_dir, exist_ok=True)
 
 	def get_sampler(self, model):
 		if self.sampler == "DPM":
