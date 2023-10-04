@@ -2,12 +2,13 @@
 
 
 from queue import Queue
-from scripts.jobs import ImageJob, Options
+from scripts.jobs import ImageJob
 from scripts.txt2img import txt2img
 
 
 class ImageWorker():
-	def __init__(self):
+	def __init__(self, input_dir, output_dir, path_to_models):
+		self.manager = ModelManager(input_dir, output_dir, path_to_models)
 		self.jobs = Queue(maxsize = 20)
 		self.completed_jobs = []
 		self.failed_jobs = []
@@ -21,12 +22,13 @@ class ImageWorker():
 			else:
 				self.failed_jobs.append(cur_job)
 
-	def submit_job(self, job_type: str, job: dict):
-		options = Options(job)
-		job = ImageJob(job_type)
-		job.options = options
+	def submit_job(self, oper_list: dict):
+		job = ImageJob(oper_list)
 		self.jobs.put(job)
 
 	def run_job(self, job: ImageJob):
-		if job.job_type == 'txt2img':
-			return txt2img(job.options)
+		if job.run(self.manager):
+			return True
+		return False
+
+
