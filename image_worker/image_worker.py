@@ -48,6 +48,6 @@ class ImageWorker():
 		self.jobs.put(job)
 
 	def run_job(self, job: ImageJob):
-		return job.run(self.manager, self.input_dir, self.output_dir):
+		return job.run(self.manager, self.input_dir, self.output_dir)
 
 
