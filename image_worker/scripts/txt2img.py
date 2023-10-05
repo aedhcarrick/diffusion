@@ -53,10 +53,6 @@ def txt2img(opt: Options):
 	device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 	model = model.to(device)
 
-	# get sampler
-	if not opt.sampler:
-		opt.sampler = Sampler('DDIM')
-	sampler = opt.sampler.get_sampler(model)
 
 	# create output
 	os.makedirs(opt.output_dir, exist_ok=True)
