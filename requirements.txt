@@ -4,6 +4,7 @@ clip
 diffusers
 einops>=0.6.1
 kornia
+logger
 numpy==1.23.5
 pytorch-lightning>=2.0
 pyyaml>=6.0
