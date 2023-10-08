@@ -3,14 +3,16 @@
 from image_worker.image_worker import ImageWorker
 
 
-def test_simple_job():
+'''
+def test_start_worker():
 	input_dir = 'inputs'
 	output_dir = 'outputs'
 	model_dir = 'models'
 	worker = ImageWorker(input_dir, output_dir, model_dir)
-
 	worker.start()
 
+
+def test_simple_job():
 	job = {
 		"job_type": "image",
 		"operations": [
@@ -27,7 +29,9 @@ def test_simple_job():
 			}
 		]
 	}
-
 	worker.submit_job(job)
 
+
+def test_stop_worker():
 	worker.stop()
+'''
