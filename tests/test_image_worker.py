@@ -3,6 +3,7 @@
 from image_worker.image_worker import ImageWorker
 
 operation = {
+	"oper_type": "txt2img",
     "network_module": None,
     "network_weight": None,
     "network_mul": 1.0,

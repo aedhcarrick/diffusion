@@ -7,6 +7,7 @@ import os
 import sys
 import torch
 import torchvision
+import uuid
 
 
 from diffusers import (
@@ -22,17 +23,18 @@ from diffusers import (
 		KDPM2DiscreteScheduler,
 		KDPM2AncestralDiscreteScheduler,
 		AutoencoderKL,
-		Unet2DConditionModel
+		UNet2DConditionModel
 		)
 from einops import rearrange
 from enum import Enum
 from torch import einsum
 from torchvision import transforms
-from tqdm import tqdm
-from transformer import (
+from tqdm.autonotebook import tqdm
+from transformers import (
 		CLIPTextModel,
 		CLIPTokenizer
 		)
+from typing import Literal
 
 
 class SchedulerType(Enum):

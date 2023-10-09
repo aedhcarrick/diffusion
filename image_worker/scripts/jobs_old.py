@@ -11,7 +11,6 @@ import uuid
 
 from contextlib import contextmanager, nullcontext
 from einops import rearrange
-from image_worker import scripts
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.models.diffusion.plms import PLMSSampler
 from ldm.models.diffusion.dpm_solver import DPMSolverSampler
@@ -128,30 +127,4 @@ class ImageJob():
 				success = False
 		return success
 
-
-import diffusers
-import numpy as np
-import torch
-import torchvision
-
-from diffusers import (
-		DDPMScheduler,
-		EulerAncestralDiscreteScheduler,
-		DPMSolverMultistepScheduler,
-		DPMSolverSinglestepScheduler,
-		LMSDiscreteScheduler,
-		PNDMScheduler,
-		DDIMScheduler,
-		EulerDiscreteScheduler,
-		HeunDiscreteScheduler,
-		KDPM2DiscreteScheduler,
-		KDPM2AncestralDiscreteScheduler
-		Unet2DConditionModel,
-		)
-from einops import rearrange
-from torch import einsum
-from tqdm import tqdm
-from torchvision import transforms
-from transformers import (
-	CLIPTextModel, CLIPToken
 
