@@ -2,8 +2,31 @@
 
 from image_worker.image_worker import ImageWorker
 
+operation = {
+    "network_module": None,
+    "network_weight": None,
+    "network_mul": 1.0,
+    "network_args": None,
+    "ckpt": None,
+    "vae": None,
+    "xformers": True,
+    "W": 512,
+    "H": 512,
+    "seed": None,
+    "scale": 7.5,
+    "sampler": 'DDIM',
+    "steps": 40,
+    "batch_size": 1,
+    "clip_skip": None,
+    "prompt": 'a dog eating nachos, in the style of Caravaggio',
+}
 
-'''
+global job = {
+	"job_type": "image",
+	"operations": [operation]
+}
+
+
 def test_start_worker():
 	input_dir = 'inputs'
 	output_dir = 'outputs'
@@ -13,25 +36,18 @@ def test_start_worker():
 
 
 def test_simple_job():
-	job = {
-		"job_type": "image",
-		"operations": [
-			{
-			"oper_type": "txt2img",
-			"prompt": "a cow eating nachos",
-			"sampler": "DDIM",
-			"steps": 50,
-			"height": 512,
-			"width": 768,
-			"guidance": 7.5,
-			"seed": 42,
-			"batch_size": 1,
-			}
-		]
-	}
+	global job
 	worker.submit_job(job)
 
 
 def test_stop_worker():
 	worker.stop()
+
+
+
+
 '''
+job template
+
+
+operation

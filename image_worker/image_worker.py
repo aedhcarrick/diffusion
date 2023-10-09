@@ -45,22 +45,22 @@ class ImageWorker():
 			self.log.info(f'Waiting for job....')
 			time.sleep(5)
 			cur_job = self.jobs.get()
-			self.log.info(f'Job received: {cur_job.ID}.')
+			self.log.info(f'Job received: {cur_job.job_ID}.')
 			success = self.run_job(cur_job)
 			if success:
 				self.completed_jobs.append(cur_job)
-				self.log.info(f'Job successful: {cur_job.ID}.')
+				self.log.info(f'Job successful: {cur_job.job_ID}.')
 			else:
 				self.failed_jobs.append(cur_job)
-				self.log.error(f'Job failed: {cur_job.ID}.')
+				self.log.error(f'Job failed: {cur_job.job_ID}.')
 
 	def submit_job(self, oper_list: dict):
 		job = ImageJob(oper_list)
-		self.log.info(f'Adding job to queue: {job.ID}')
+		self.log.info(f'Adding job to queue: {job.job_ID}')
 		self.jobs.put(job)
 
 	def run_job(self, job: ImageJob):
-		self.log.info(f'Running job:  {job.ID}')
+		self.log.info(f'Running job:  {job.job_ID}')
 		return job.run(self.manager, self.input_dir, self.output_dir)
 
 
