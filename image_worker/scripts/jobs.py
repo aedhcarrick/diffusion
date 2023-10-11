@@ -26,9 +26,8 @@ class TextToImageOperation():
 	def __init__(self, settings: dict):
 		self.prompt: str = "a painting of a dog eating nachos"
 		self.config: str = "configs/stable-diffusion/v1-inference.yaml"
-		self.model: str = "model.ckpt"
+		self.model: str = "deliberate_v2.ckpt"
 		self.sampler: str = None
-		self.iter: int = 2
 		self.steps: int = 50
 		self.eta: float = 0.0
 		self.height: int = 512
