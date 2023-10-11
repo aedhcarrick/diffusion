@@ -26,7 +26,7 @@ class TextToImageOperation():
 	def __init__(self, settings: dict):
 		self.prompt: str = "a painting of a dog eating nachos"
 		self.config: str = "configs/stable-diffusion/v1-inference.yaml"
-		self.model: str = "deliberate_v2.ckpt"
+		self.model: str = "deliberate_v2.safetensors"
 		self.sampler: str = None
 		self.steps: int = 50
 		self.eta: float = 0.0
@@ -116,6 +116,7 @@ class ImageJob():
 			if op['oper_type'] == 'txt2img':
 				oper = TextToImageOperation(op)
 			self.operations.append(oper)
+		self.prog = 0
 
 	def run(self, manager, input_dir, output_dir):
 		success = True

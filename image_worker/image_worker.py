@@ -5,7 +5,7 @@ import logging
 import os
 import time
 
-from queue import Queue
+from queue import Empty, Queue
 from image_worker.scripts.jobs import ImageJob
 from model_manager.model_manager import ModelManager
 from threading import Thread
@@ -28,6 +28,7 @@ class ImageWorker():
 		os.makedirs(self.output_dir, exist_ok=True)
 
 		self.jobs = Queue(maxsize = 20)
+		self.current_job = None
 		self.completed_jobs = []
 		self.failed_jobs = []
 
@@ -47,26 +48,36 @@ class ImageWorker():
 
 	def run(self):
 		while(self.running):
-			if self.jobs.empty():
-				time.sleep(10)
-				self.log.info(f'Waiting for jobs..')
+			try:
+				self.current_job = self.jobs.get(timeout=60)
+			except Empty:
 				continue
-			cur_job = self.jobs.get()
-			self.log.info('')
-			self.log_info('Job received.')
-			success = self.run_job(cur_job)
+			self.log.info('Job received.')
+			success = self.run_job(self.current_job)
 			if success:
-				self.completed_jobs.append(cur_job)
-				self.log.info(f'Job completed successfully: {cur_job.job_ID}')
+				self.completed_jobs.append(self.current_job)
+				self.log.info(f'Job completed successfully: {self.current_job.job_ID}')
 			else:
-				self.failed_jobs.append(cur_job)
-				self.log.error(f'Job failed: {cur_job.job_ID}')
+				self.failed_jobs.append(self.current_job)
+				self.log.error(f'Job failed: {self.current_job.job_ID}')
+			self.current_job = None
 
 	def submit_job(self, oper_list: dict):
 		job = ImageJob(oper_list)
 		self.jobs.put(job)
+		return job.job_ID
 
 	def run_job(self, job: ImageJob):
 		return job.run(self.manager, self.input_dir, self.output_dir)
+
+	def check_job(self, job_ID):
+		if self.current_job.job_ID == job_ID:
+			return { 'sate': 'Working', 'progress': job.prog }
+		for job in self.failed_jobs:
+			if job.job_ID == job_ID:
+				return { 'state': 'Failed', 'progess': job.prog }
+		for job in self.completed_jobs:
+			if job.job_ID == job_ID:
+				return { 'state': 'Completed', 'progess': job.prog }
 
 

@@ -3,6 +3,7 @@
 
 import logging
 import os
+import safetensors
 import torch
 
 from ldm.util import instantiate_from_config
@@ -29,6 +30,7 @@ class ModelManager():
 		self.model_dir = model_dir
 		self.ckpt_dir = os.path.join(model_dir, 'checkpoints')
 		self.get_available_models()
+		self.dtype = torch.float16
 
 	def get_available_models(self):
 		self.log.info('Getting available models..')
@@ -45,6 +47,7 @@ class ModelManager():
 		else:
 			pl_sd = torch.load(ckpt, map_location="cpu")
 			sd = pl_sd["state_dict"]
+
 		model = instantiate_from_config(config.model)
 		m, u = model.load_state_dict(sd, strict=False)
 		if len(m) > 0:
@@ -53,10 +56,9 @@ class ModelManager():
 			self.log.error(f"unexpected keys:  {u}")
 		if not len(m) + len(u):
 			self.log.info('All keys matched.')
-
 		model.cuda()
 		model.eval()
-		model = model.to(self.device)
+		model = model.to(self.device, dtype=self.dtype)
 		return model
 
 	def get_loaded_model(self, model_name):
@@ -73,7 +75,7 @@ class ModelManager():
 
 	def load_model(self, model_name):
 		config = OmegaConf.load('configs/stable-diffusion/v1-inference.yaml')
-		path_to_model = os.path.join(self.model_dir, model_name)
+		path_to_model = os.path.join(self.ckpt_dir, model_name)
 		model = self.load_model_from_config(config, path_to_model)
 		loaded_model = LoadedModel(model_name, config, self.device, model)
 		self.loaded_models.append(loaded_model)
