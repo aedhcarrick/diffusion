@@ -71,8 +71,8 @@ class ImageWorker():
 		return job.run(self.manager, self.input_dir, self.output_dir)
 
 	def check_job(self, job_ID):
-		if self.current_job.job_ID == job_ID:
-			return { 'sate': 'Working', 'progress': job.prog }
+		if self.current_job is not None and self.current_job.job_ID == job_ID:
+				return { 'state': 'Working', 'progress': self.current_job.prog }
 		for job in self.failed_jobs:
 			if job.job_ID == job_ID:
 				return { 'state': 'Failed', 'progess': job.prog }
