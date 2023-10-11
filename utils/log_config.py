@@ -3,27 +3,32 @@
 import os
 import sys
 import json
+import logging
 import logging.config
 import getpass
 import threading
 
+# custom formatter isn't working?
 
 class ColoredFormatter(logging.Formatter):
-	grey = "\\x1b[38;21m"
-	yellow = "\\x1b[33;21m"
-	red = "\\x1b[31;21m"
-	bold_red = "\\x1b[31;1m"
-	reset = "\\x1b[0m"
-	format = "%(asctime)s - %(name)s - %(levelname)8s - %(message)s"
-	datefmt = "%m/%d/%Y %I:%M:%S %p"
+	grey = "\x1b[0;37m"
+	green = "\x1b[1;32m"
+	yellow = "\x1b[33;21m"
+	red = "\x1b[31;21m"
+	bold_red = "\x1b[31;1m"
+	reset = "\x1b[0m"
 
-	FORMATS = {
-		logging.DEBUG: grey + format + reset,
-		logging.INFO: grey + format + reset,
-		logging.WARNING: yellow + format + reset,
-		logging.ERROR: red + format + reset,
-		logging.CRITICAL: bold_red + format + reset
-	}
+	def __init__(self, fmt, datefmt):
+		super().__init__()
+		self.format = fmt
+		self.datefmt = datefmt
+		self.FORMATS = {
+			logging.DEBUG: grey + self.format + reset,
+			logging.INFO: green + self.format + reset,
+			logging.WARNING: yellow + self.format + reset,
+			logging.ERROR: red + self.format + reset,
+			logging.CRITICAL: bold_red + self.format + reset
+		}
 
 	def format(self, record):
 		log_fmt = self.FORMATS.get(record.levelno)
@@ -37,7 +42,9 @@ default_config = {
 
 	"formatters": {
 		"basic": {
-			'()': 'utils.log_config.ColoredFormatter'
+			(): ColoredFormatter,
+			"format": "%(asctime)s - %(name)s - %(levelname)8s : %(message)s",
+			"datefmt": "%m/%d/%Y %I:%M:%S %p"
 		},
 		"log_format": {
 			"format": "%(asctime)s - %(name)s - %(levelname)8s : %(message)s",
@@ -125,12 +132,12 @@ def setup_logging(
 class FakeClass():
 	def __init__(self):
 		self.log = logging.getLogger(".".join([__name__, self.__class__.__name__]))
-		self.log.addFilter(log_config.ThreadContextFilter())
+		self.log.addFilter(ThreadContextFilter())
 		self.log.info(f'Instance of {self.__class__.__name__} created.')
 
 def test_logger():
 	log = logging.getLogger(__name__)
-	log_config.setup_logging()
+	setup_logging()
 	log.debug("Debug Message")
 	log.info("Info Message")
 	log.warning("Info Warning")
@@ -139,5 +146,6 @@ def test_logger():
 
 	fake = FakeClass()
 
-
+if __name__ == '__main__':
+	test_logger()
 
