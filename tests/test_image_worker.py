@@ -4,11 +4,12 @@ from image_worker.image_worker import ImageWorker
 
 
 def test_simple_job():
-	input_dir = 'inputs'
-	output_dir = 'outputs'
+	input_dir = 'input'
+	output_dir = 'output'
 	model_dir = 'models'
 	worker = ImageWorker(input_dir, output_dir, model_dir)
 
+	start_count = len(os.listdir(output_dir))
 	worker.start()
 
 	job = {
@@ -29,5 +30,7 @@ def test_simple_job():
 	}
 
 	worker.submit_job(job)
-
 	worker.stop()
+	final_count = len(os.listdir(output_dir))
+	assert(final_count > start_count)
+

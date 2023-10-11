@@ -12,6 +12,10 @@ from threading import Thread
 from utils import log_config
 
 
+log = logging.getLogger(__name__)
+log_config.setup_logging()
+
+
 class ImageWorker():
 	def __init__(self, input_dir, output_dir, path_to_models):
 		self.log = logging.getLogger(".".join([__name__, self.__class__.__name__]))
@@ -43,10 +47,9 @@ class ImageWorker():
 
 	def run(self):
 		while(self.running):
-			self.log.info(f'Waiting for jobs', end='')
 			if self.jobs.empty():
 				time.sleep(10)
-				self.log.info(f'.', end='')
+				self.log.info(f'Waiting for jobs..')
 				continue
 			cur_job = self.jobs.get()
 			self.log.info('')

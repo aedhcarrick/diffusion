@@ -6,10 +6,11 @@ einops>=0.6.1
 kornia
 logger
 numpy==1.23.5
-pytorch-lightning>=2.0
-pyyaml>=6.0
 omegaconf>=2.3
 opencv-python>=4.8
+pytorch-lightning>=2.0
+pyyaml>=6.0
+safetensors
 taming-transformers-rom1504
 transformers>-4.20
 torch>=2.0
