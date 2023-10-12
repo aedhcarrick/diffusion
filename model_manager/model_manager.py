@@ -7,17 +7,29 @@ import safetensors
 import torch
 
 from ldm.util import instantiate_from_config
+from models import LoadedModel
 from omegaconf import OmegaConf
 from utils import log_config
+from utils.cli_args import args
 
 
-class LoadedModel():
-	def __init__(self, name, config, device, model):
-		self.name = name
-		self.base = 'sd15'
-		self.config = config
-		self.device = device
-		self.model = model
+try:
+	OOM_EXCEPTION = torch.cuda.OutOfMemoryError
+except Exception:
+	OOM_EXCEPTION = Exception
+
+XFORMERS_VERSION = ""
+XFORMERS_ENABLED = True
+
+
+class Device(Enum):
+	CPU = 'cpu'
+	GPU = 'gpu'
+	XPU = 'xpu'
+	MPS = 'mps'
+	DIRECTML = 'direct_ml'
+
+
 
 class ModelManager():
 	def __init__(self, model_dir):

@@ -8,6 +8,8 @@ import logging.config
 import getpass
 import threading
 
+from cli_args import args
+
 # custom formatter isn't working?
 
 class ColoredFormatter(logging.Formatter):
@@ -58,7 +60,7 @@ default_config = {
 	"handlers": {
 		"console": {
 			"class": "logging.StreamHandler",
-			"level": "INFO",
+			"level": "WARNING",
 			"formatter": "basic",
 			"stream": "ext://sys.stdout"
 		},
@@ -88,7 +90,7 @@ default_config = {
 
 	"root": {
 		"level": "INFO",
-		"handlers": ["console","local_file_handler"],
+		"handlers": ["console"],
 	}
 }
 
@@ -123,6 +125,12 @@ def setup_logging(
 			dict_config = file_config
 
 	if dict_config is not None:
+		if args.debug:
+			dict_config['root']['level'] = "DEBUG"
+		if args.verbose:
+			dict_config['handlers']['console']['level'] = "DEBUG"
+		if args.log:
+			dict_config['root']['handlers'].append('local_file_handler')
 		logging.config.dictConfig(dict_config)
 	else:
 		logging.basicConfig(level=default_level)
