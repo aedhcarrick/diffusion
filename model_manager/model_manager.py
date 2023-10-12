@@ -27,9 +27,9 @@ class Device(Enum):
 	GPU = 'gpu'
 	XPU = 'xpu'
 	MPS = 'mps'
-	DIRECTML = 'direct_ml'
 
-
+def get_torch_device():
+	return torch.device(torch.cuda.current_device())
 
 class ModelManager():
 	def __init__(self, model_dir):
@@ -38,7 +38,7 @@ class ModelManager():
 		self.log.info('Initializing model manager..')
 		self.available_models = []
 		self.loaded_models = []
-		self.device = torch.device(torch.cuda.current_device())
+		self.device = get_torch_device()
 		self.model_dir = model_dir
 		self.ckpt_dir = os.path.join(model_dir, 'checkpoints')
 		self.get_available_models()

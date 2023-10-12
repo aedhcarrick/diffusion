@@ -16,7 +16,8 @@ device_group.add_argument("--cpu", action="store_true", help="set prefered devic
 device_group.add_argument("--gpu", action="store_true", help="set prefered device to gpu")
 device_group.add_argument("--xpu", action="store_true", help="set prefered device to xpu")
 device_group.add_argument("--mps", action="store_true", help="set prefered device to mps")
-device_group.add_argument("--directml", action="store_true", help="set prefered device to directml")
+
+parser.add_argument("--directml", type="int", metavar="DIRECTML_DEVICE", const=-1, help="set prefered device to directml")
 
 
 
