@@ -137,7 +137,7 @@ def setup_logging(
 
 
 #	For Testing  #######################################################
-class FakeClass():
+class FakeClassForLogger():
 	def __init__(self):
 		self.log = logging.getLogger(".".join([__name__, self.__class__.__name__]))
 		self.log.addFilter(ThreadContextFilter())
@@ -152,7 +152,7 @@ def test_logger():
 	log.error("Error Message")
 	log.critical("Critical Message")
 
-	fake = FakeClass()
+	fake = FakeClassForLogger()
 
 if __name__ == '__main__':
 	test_logger()

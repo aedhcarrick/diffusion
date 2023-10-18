@@ -2,6 +2,7 @@
 
 
 import cv2
+import logging
 import numpy as np
 import os
 import sys
@@ -12,21 +13,35 @@ import uuid
 from contextlib import contextmanager, nullcontext
 from einops import rearrange
 from image_worker import scripts
-from ldm.models.diffusion.ddim import DDIMSampler
-from ldm.models.diffusion.plms import PLMSSampler
-from ldm.models.diffusion.dpm_solver import DPMSolverSampler
 from PIL import Image
 from pytorch_lightning import seed_everything
 from torch import autocast
 from tqdm import tqdm, trange
 from typing import Literal, Union
+from utils.log_config import ThreadContextFilter
 
 
-class TextToImageOperation():
+log = logging.getLogger(_name__)
+log.addFilter(ThreadContextFilter())
+
+
+class BaseOperation():
+	def set_attributes_from_settings(self, settings: dict):
+		for key, value in settings.items():
+			setattr(self, key, value)
+
+	def get_output_dir_base_count(self, output_dir):
+		return len(os.listdir(output_dir))
+
+	def execute(self):
+		pass
+
+class TextToImageOperation(BaseOperation):
 	def __init__(self, settings: dict):
 		self.prompt: str = "a painting of a dog eating nachos"
-		self.config: str = "configs/stable-diffusion/v1-inference.yaml"
 		self.model: str = "deliberate_v2.safetensors"
+		self.vae = None
+		self.clip = None
 		self.sampler: str = None
 		self.steps: int = 50
 		self.eta: float = 0.0
@@ -39,35 +54,35 @@ class TextToImageOperation():
 		self.seed: int = 42
 		self.fixed_code: bool = False
 		self.precision: Literal["full", "autocast"] = "autocast"
-		for key, value in settings.items():
-			setattr(self, key, value)
+		self.set_attributes_from_settings(settings)
 
-	def get_sampler(self, model):
-		if self.sampler == "DPM":
-			return DPMSolverSampler(model)
-		elif self.sampler == "PLMS":
-			return PLMSSampler(model)
-		else:
-			return DDIMSampler(model)
-
-	def execute(self, model, device, input_dir, output_dir):
-		sampler = self.get_sampler(model)
-
-		seed_everything(self.seed)
-
-		assert self.prompt is not None
+	def execute(self, manager, input_dir='None', output_dir='None'):
+		if self.prompt is None:
+			log.error(f'Prompt is empty. Aborting.')
+			return False
 		data = [self.batch_size * [self.prompt]]
-
-		base_count = len(os.listdir(output_dir))
+		base_count = self.get_output_dir_base_count(output_dir)
 
 		start_code = None
 		if self.fixed_code:
 			start_code = torch.randn([self.batch_size, self.channels, self.height // self.down_sampling, self.width // self.down_sampling], device=device)
+		seed_everything(self.seed)
 
 		precision_scope = autocast if self.precision=="autocast" else nullcontext
 
+		model = manager.get_loaded_model(oper.model)
+		if self.vae is None:
+			vae = loaded_model.get_vae()
+		else:
+			vae = manager.get_vae(self.vae)
+		if self.clip is None:
+			clip = loaded_model.get_clip()
+		else:
+			clip = manager.get_clip(self.clip)
+		sampler = loaded_model.get_sampler(self.sampler)
+
 		with torch.no_grad():
-			with precision_scope("cuda"):
+			with precision_scope(loaded_model.device, loaded_model.dtype):
 				with model.ema_scope():
 					tic = time.time()
 					all_samples = list()
@@ -121,9 +136,7 @@ class ImageJob():
 	def run(self, manager, input_dir, output_dir):
 		success = True
 		for oper in self.operations:
-			model = manager.get_loaded_model(oper.model)
-			device = manager.device
-			if not oper.execute(model, device, input_dir, output_dir):
+			if not oper.execute(manager, input_dir, output_dir):
 				success = False
 		return success
 
