@@ -1,4 +1,4 @@
-#  models.py
+#  model_manager/models.py
 
 
 import copy
