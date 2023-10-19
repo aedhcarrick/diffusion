@@ -587,20 +587,20 @@ class LoadedModel():
 					alpha *= v[2] / w1b.shape[0]
 				w2a = v[3]
 				w2b = v[4]
-				if v[5] is not None: #cp decomposition
+				if v[5] is not None:
 					t1 = v[5]
 					t2 = v[6]
 					m1 = torch.einsum(
 							'i j k l, j r, i p -> p r k l',
 							cast_to_device(t1, weight.device, torch.float32),
-							cast_to_device(w1b, weight.device, torch.float32),
-							cast_to_device(w1a, weight.device, torch.float32)
+							cast_to_device(w1a, weight.device, torch.float32),
+							cast_to_device(w1b, weight.device, torch.float32)
 					)
 					m2 = torch.einsum(
 							'i j k l, j r, i p -> p r k l',
 							cast_to_device(t2, weight.device, torch.float32),
-							cast_to_device(w2b, weight.device, torch.float32),
-							cast_to_device(w2a, weight.device, torch.float32)
+							cast_to_device(w2a, weight.device, torch.float32),
+							cast_to_device(w2b, weight.device, torch.float32)
 					)
 				else:
 					m1 = torch.mm(

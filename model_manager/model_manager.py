@@ -130,7 +130,34 @@ class ModelManager():
 		else:
 			return DDIMSampler(model)
 
-	def
+	def unload_model_clones(self, model):
+		clones = []
+		for i in range(len(self.loaded_models)):
+			if model.is_clone(self.loaded_models[i]):
+				clones.append(i)
+		for i in clones:
+			log.info(f'Unloading clone {i}')
+			self.loaded_models.pop(i).unload_model()
+
+	def free_memory(memory_required, device, keep_loaded=[]):
+		models_unloaded = False
+		for i in range(len(self.loaded_models) -1, -1, -1):
+			if not _utils.DISABLE_SMART_MEMORY:
+				if _utils.get_free_memory(device) > memory_required:
+					break
+				shift_model = self.loaded_models[i]
+				if shift_model.load_device == device:
+					if shift_model not in keep_loaded:
+						model = self.loaded_models.pop(i)
+						model.unload_model()
+						del model
+						model_unloaded = True
+		if model_unloaded:
+			utils.soft_empty_cache()
+
+	def load_models_gpu(models, memory_required=0):
+		global _utils.VramState
+
 
 
 
