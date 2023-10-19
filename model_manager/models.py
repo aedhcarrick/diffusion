@@ -5,11 +5,13 @@ import copy
 import inspect
 import torch
 
+from enum import Enum
 from ldm.modules.diffusionmodules.openaimodel import UNetModel
 from ldm.modules.encoders.noise_aug_modules import CLIPEmbeddingNoiseAugmentation
 from ldm.modules.diffusionmodules.util import make_beta_schedule
-from enum import Enum
 from utils.log_config import ThreadContextFilter
+from uitls import device_manager as _utils
+
 from clip import Clip
 from vae import Vae
 
@@ -94,6 +96,26 @@ def load_clip_weights(model, state_dict):
                     state_dict[k_to] = weights[shape_from*x:shape_from*(x + 1)]
 	return load_model_weights(model, state_dict)
 
+def cast_to_device(tensor, device, dtype, copy=False):
+    device_supports_cast = False
+    if tensor.dtype == torch.float32 or tensor.dtype == torch.float16:
+        device_supports_cast = True
+    elif tensor.dtype == torch.bfloat16:
+        if hasattr(device, 'type') and device.type.startswith("cuda"):
+            device_supports_cast = True
+        elif _utils.is_xpu():
+            device_supports_cast = True
+
+    if device_supports_cast:
+        if copy:
+            if tensor.device == device:
+                return tensor.to(dtype, copy=copy)
+            return tensor.to(device, copy=copy).to(dtype)
+        else:
+            return tensor.to(device).to(dtype)
+    else:
+        return tensor.to(dtype).to(device, copy=copy)
+
 
 class ModelType(Enum):
 	EPS = 'eps'
@@ -101,15 +123,16 @@ class ModelType(Enum):
 
 
 class ModelConfig():
-    unet_config = {}
-    vae_config = {}
-    clip_config = {}
-    clip_prefix = []
-    clip_vision_prefix = None
-    noise_aug_config = None
-    beta_schedule = "linear"
-    latent_format = None
+	unet_config = {}
+	vae_config = {}
+	clip_config = {}
+	clip_prefix = []
+	clip_vision_prefix = None
+	noise_aug_config = None
+	beta_schedule = "linear"
+	latent_format = LatentFormatSD1_5(scale_factor)
 	model_type = ModelType.EPS
+	dtype = torch.float32
 
 	def __init__(self, model_name, model_path):
 		self.name = model_name
@@ -117,14 +140,14 @@ class ModelConfig():
 		self.state_dict = get_state_dict(model_path)
 
 
-    def matches(s, unet_config):
-        for k in s.unet_config:
-            if s.unet_config[k] != unet_config[k]:
-                return False
-        return True
+	def matches(s, unet_config):
+		for k in s.unet_config:
+			if s.unet_config[k] != unet_config[k]:
+				return False
+		return True
 
-    def is_inpaint(self):
-        return self.unet_config["in_channels"] > 4
+	def is_inpaint(self):
+		return self.unet_config["in_channels"] > 4
 
 
 class BaseModel(torch.nn.Module):
@@ -284,6 +307,13 @@ class LoadedModel():
 		else:
 			return self.model_size
 
+	def get_dtype(self):
+		if hasattr(self.model, 'get_dtype'):
+			returnn self.model.get_dtype()
+
+	def __eq__(self, other):
+		return self.model is other.model
+
 	def get_clip(self):
 		log.info(f'Loading CLIP from model..')
 		weights = torch.nn.Module()
@@ -299,6 +329,51 @@ class LoadedModel():
 		weights.first_stage_model = vae.first_stage_model
 		load_model_weights(weights, state_dict)
 		return vae
+
+	def load_model(self, low_vram_mem=0):
+		patch_to = None
+		if low_vram_mem == 0:
+			patch_to = self.load_device
+		self.model_patches_to(self.load_device)
+		self.model_patches_to(self.get_dtype())
+
+		try:
+			self.real_model = self.patch_model(device=patch_to)
+		except Exception as e:
+			self.unpatch_model(self.offload_device)
+			self.unload_model()
+			log.error(f'Failed to load model: {e}')
+
+		if low_vram_mem > 0:
+			log.info(f'Loading model in low vram mode')
+			device_map = accelerate.infer_auto_device_map(
+					self.real_model,
+					max_memory={
+						0: "{}MiB".format(lowvram_model_memory // (1024 * 1024)),
+						"cpu": "16GiB"
+					}
+			)
+			accelerate.dispatch_model(
+					self.real_model,
+					device_map=device_map,
+					main_device=self.load_device
+			)
+			self.accelerated = True
+		if _utils.is_xpu and not args.disable_ipex:
+			self.real_model = torch.xpu.optimize(
+					self.real_model.eval(),
+					inplace=True,
+					auto_kernel_selection=True,
+					graph_mode=True,
+			)
+		return self.real_model
+
+	def unload_model(self):
+		if self.accelerated:
+			accelerate.hooks.remove_hook_from_submodules(self.real_model)
+			self.accelerated = False
+		self.unpatch_model(self.offload_device)
+		self.model_patches_to(self.offload_device)
 
 	def clone(self):
 		n = LoadedModel(self.model, self.load_device, self.offload_device)
@@ -334,6 +409,216 @@ class LoadedModel():
 		if name not in self.model_options["transformer_options"]["patches_replace"]:
 			self.model_options["transformer_options"]["patches_replace"][name] = {}
 		self.model_options["transformer_options"]["patches_replace"][name][(block_name, number)] = patch
+
+	def model_patches_to(self, device):
+		if "patches" in self.model_options["transformer_options"]:
+			patches = self.model_options["transformer_options"]["patches"]
+			for name in patches:
+				patch_list = patches[name]
+				for i in range(len(patch_list)):
+					if hasattr(patch_list[i], "to"):
+						patch_list[i] = patch_list[i].to(device)
+		if "patches_replace" in self.model_options["transformer_options"]:
+			patches = self.model_options["transformer_options"]["patches_replace"]
+			for name in patches:
+				patch_list = patches[name]
+				for k in patch_list:
+					if hasattr(patch_list[k], "to"):
+						patch_list[k] = patch_list[k].to(device)
+		if "unet_wrapper_function" in self.model_options:
+			wrap_func = self.model_options["unet_wrapper_function"]
+			if hasattr(wrap_func, "to"):
+				self.model_options["unet_wrapper_function"] = wrap_func.to(device)
+
+    def add_patches(self, patches, strength_patch=1.0, strength_model=1.0):
+        p = set()
+        for k in patches:
+            if k in self.model_keys:
+                p.add(k)
+                current_patches = self.patches.get(k, [])
+                current_patches.append((strength_patch, patches[k], strength_model))
+                self.patches[k] = current_patches
+
+        return list(p)
+
+    def get_key_patches(self, filter_prefix=None):
+        model_sd = self.model_state_dict()
+        p = {}
+        for k in model_sd:
+            if filter_prefix is not None:
+                if not k.startswith(filter_prefix):
+                    continue
+            if k in self.patches:
+                p[k] = [model_sd[k]] + self.patches[k]
+            else:
+                p[k] = (model_sd[k],)
+        return p
+
+	def patch_model(self, device=None):
+		state_dict = self.model_config.state_dict
+		for key in self.patches:
+			if key not in state_dict:
+				log.info(f"Could not patch. Key doesn't exist in model: {key}")
+				continue
+			weight = state_dict[key]
+			if key not in self.backup:
+				self.backup[key] = weight.to(self.offload_device)
+			if device is not None:
+				temp_weight = cast_to_device(weight, device, torch.float32, copy=True)
+			else:
+				temp_weight = weight.to(torch.float32, copy=True)
+			out_weight = self.calculate_weight(self.patches[key], temp_weight, key).to(weight.dtype)
+			self.set_attr(key, out_weight)
+
+		if device is not None:
+			self.model.to(device)
+			self.current_device = device
+		return self.model
+
+	def unpatch_model(self, device=None):
+		keys = list(self.backup.keys())
+		for key in keys:
+			self.set_attr(key, self.backup[key])
+		self.backup = {}
+		if device is not None:
+			self.model.to(device)
+			self.current_device = device
+
+	def set_attr(self, attr, value):
+		attrs = attr.split(".")
+		obj = self.model
+		for name in attrs[:-1]:
+			obj = getattr(obj, name)
+		prev = getattr(obj, attrs[-1])
+		setattr(obj, attrs[-1], torch.nn.Parameter(value))
+		del prev
+
+	def get_attr(self, attr):
+		attrs = attr.split(".")
+		obj = self.model
+		for name in attrs:
+			obj = getattr(obj, name)
+		return obj
+
+	def calculate_weight(self, patches, weight, key):
+		for p in patches:
+			alpha = p[0]
+			v = p[1]
+			strength_model = p[2]
+			if strength_model != 1.0:
+				weight *= strength_model
+
+			if isinstance(v, list):
+				v = (self.calculate_weight(v[1:], v[0].clone(), key), )
+
+			if len(v) == 1:
+				w1 = v[0]
+				if alpha != 0.0:
+					if w1.shape != weight.shape:
+						log.warning(f"Shape mismatch:  {key}. Weights not merged {w1.shape} != {weight.shape}")
+					else:
+						weight += alpha * cast_to_device(w1, weight.device, weight.dtype)
+
+			elif len(v) == 4: #lora/locon
+				mat1 = cast_to_device(v[0], weight.device, torch.float32)
+				mat2 = cast_to_device(v[1], weight.device, torch.float32)
+				if v[2] is not None:
+					alpha *= v[2] / mat2.shape[0]
+				if v[3] is not None:
+					# locon weights <-- double check this
+					mat3 = cast_to_device(v[3], weight.device, torch.float32)
+					final_shape = [mat2.shape[1], mat2.shape[0], mat3.shape[2], mat3.shape[3]]
+					mat2 = torch.mm(mat2.transpose(0, 1).flatten(start_dim=1), mat3.transpose(0, 1).flatten(start_dim=1)).reshape(final_shape).transpose(0, 1)
+				try:
+					weight += (alpha * torch.mm(mat1.flatten(start_dim=1), mat2.flatten(start_dim=1))).reshape(weight.shape).type(weight.dtype)
+				except Exception as e:
+					log.error(f'Key: {key}  : {e}')
+
+			elif len(v) == 8: #lokr
+				w1 = v[0]
+				w2 = v[1]
+				w1_a = v[3]
+				w1_b = v[4]
+				w2_a = v[5]
+				w2_b = v[6]
+				t2 = v[7]
+				dim = None
+
+				if w1 is None:
+					dim = w1_b.shape[0]
+					w1 = torch.mm(
+							cast_to_device(w1_a, weight.device, torch.float32),
+							cast_to_device(w1_b, weight.device, torch.float32)
+					)
+				else:
+					w1 = cast_to_device(w1, weight.device, torch.float32)
+
+				if w2 is None:
+					dim = w2_b.shape[0]
+					if t2 is None:
+						w2 = torch.mm(
+								cast_to_device(w2_a, weight.device, torch.float32),
+								cast_to_device(w2_b, weight.device, torch.float32)
+						)
+					else:
+						w2 = torch.einsum(
+								'i j k l, j r, i p -> p r k l',
+								cast_to_device(t2, weight.device, torch.float32),
+								cast_to_device(w2_b, weight.device, torch.float32),
+								cast_to_device(w2_a, weight.device, torch.float32)
+						)
+				else:
+					w2 = cast_to_device(w2, weight.device, torch.float32)
+
+				if len(w2.shape) == 4:
+					w1 = w1.unsqueeze(2).unsqueeze(2)
+				if v[2] is not None and dim is not None:
+					alpha *= v[2] / dim
+
+				try:
+					weight += alpha * torch.kron(w1, w2).reshape(weight.shape).type(weight.dtype)
+				except Exception as e:
+					log.error(f'Key: {key}  : {e}')
+
+			else: #loha
+				w1a = v[0]
+				w1b = v[1]
+				if v[2] is not None:
+					alpha *= v[2] / w1b.shape[0]
+				w2a = v[3]
+				w2b = v[4]
+				if v[5] is not None: #cp decomposition
+					t1 = v[5]
+					t2 = v[6]
+					m1 = torch.einsum(
+							'i j k l, j r, i p -> p r k l',
+							cast_to_device(t1, weight.device, torch.float32),
+							cast_to_device(w1b, weight.device, torch.float32),
+							cast_to_device(w1a, weight.device, torch.float32)
+					)
+					m2 = torch.einsum(
+							'i j k l, j r, i p -> p r k l',
+							cast_to_device(t2, weight.device, torch.float32),
+							cast_to_device(w2b, weight.device, torch.float32),
+							cast_to_device(w2a, weight.device, torch.float32)
+					)
+				else:
+					m1 = torch.mm(
+							cast_to_device(w1a, weight.device, torch.float32),
+							cast_to_device(w1b, weight.device, torch.float32)
+					)
+					m2 = torch.mm(
+							cast_to_device(w2a, weight.device, torch.float32),
+							cast_to_device(w2b, weight.device, torch.float32)
+					)
+				try:
+					weight += (alpha * m1 * m2).reshape(weight.shape).type(weight.dtype)
+				except Exception as e:
+					log.error(f'Key: {key}  : {e}')
+
+		return weight
+
+
 
 
 

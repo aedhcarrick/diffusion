@@ -1,5 +1,9 @@
 #  model_manager.py
 
+#
+#	Adapted from 'https://github.com/comfyanonymous/ComfyUI'.
+#	--> GNU GPLv3
+#
 
 import io
 import logging
@@ -15,30 +19,12 @@ from models import BaseModel, LoadedModel, SD2_1_UNCLIP
 from omegaconf import OmegaConf
 from utils.cli_args import args
 from utils.log_config import ThreadContextFilter
+from utils import device_management as _utils
 
 
 log = logging.getLogger(__name__)
 log.addFilter(ThreadContextFilter())
 
-
-try:
-	OOM_EXCEPTION = torch.cuda.OutOfMemoryError
-except Exception:
-	OOM_EXCEPTION = Exception
-
-XFORMERS_VERSION = ""
-XFORMERS_ENABLED = True
-
-
-class Device(Enum):
-	CPU = 'cpu'
-	GPU = 'gpu'
-	XPU = 'xpu'
-	MPS = 'mps'
-
-
-def get_torch_device():
-	return torch.device(torch.cuda.current_device())
 
 def get_model_config(model_name, model_path, state_dict=None):
 	log.info(f'Loading configs..')
@@ -75,9 +61,9 @@ def get_model_config(model_name, model_path, state_dict=None):
 	model_config.unet_config = unet_config
 	model_config.vae_config = params['first_stage_config']
 	model_config.clip_config = params['cond_stage_config']
-	model_config.latent_format = LatentFormatSD1_5(scale_factor)
 	model_config.noise_aug_config = noise_aug_config
 	model_config.model_type = model_type
+	model_config.dtype = dtype
 	return model_config
 
 def get_model_from_config(model_config):
@@ -89,11 +75,11 @@ def get_model_from_config(model_config):
 	if model_config.is_inpaint():
 		model.set_inpaint()
 
-	if fp16:
+	if model_config.dtype == torch.float16:  # might want to double check this
 		model = model.half()
 
-	offload_device = get_unet_offload_device()
-	return LoadedModel(model, load_device=get_torch_device(), offload_device=offload_device)
+	offload_device = _utils.get_unet_offload_device()
+	return LoadedModel(model, load_device=_utils.get_torch_device(), offload_device=offload_device)
 
 
 class ModelManager():
@@ -102,7 +88,7 @@ class ModelManager():
 		self.available_models = []
 		self.loaded_models = []
 		self.offload_device = torch.device('cpu')
-		self.load_device = get_torch_device()
+		self.load_device = _utils.get_torch_device()
 		self.model_dir = model_dir
 		self.ckpt_dir = os.path.join(model_dir, 'checkpoints')
 		self.get_available_models()
@@ -144,6 +130,7 @@ class ModelManager():
 		else:
 			return DDIMSampler(model)
 
+	def
 
 
 
