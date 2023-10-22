@@ -1,7 +1,8 @@
 #  model_manager.py
 
 #
-#	Adapted from 'https://github.com/comfyanonymous/ComfyUI'.
+#	Adapted from
+#	'https://github.com/comfyanonymous/ComfyUI'.
 #	--> GNU GPLv3
 #
 
@@ -106,7 +107,6 @@ class ModelManager():
 		model_path = os.path.join(self.ckpt_dir, model_name)
 		model_config = get_model_config(model_name, model_path)
 		loaded_model = get_model_from_config(model_config)
-		self.loaded_models.append(loaded_model)
 		return loaded_model
 
 	def get_loaded_model(self, model_name):
@@ -155,8 +155,73 @@ class ModelManager():
 		if model_unloaded:
 			utils.soft_empty_cache()
 
-	def load_models_gpu(models, memory_required=0):
-		global _utils.VramState
+	def load_models_gpu(self, model_names, memory_required=0):
+		global _utils.vram_state
+		inference_mem = minimum_inference_memory()
+		extra_mem = max(inference_mem, memory_required)
+		models_to_load = []
+		models_loaded = []
+		for model_name in model_names:
+			loaded_model = self.get_loaded_model(model_name)
+			if loaded_model in self.loaded_models:
+				index = self.loaded_models.index(loaded_model)
+				self.loaded_models.insert(0, self.loaded_models.pop(index))
+				models_loaded.append(loaded_model)
+			else:
+				models_to_load.append(loaded_model)
+		if len(models_to_load) == 0:
+			devs = set(map(lambda a: a.device, models_loaded))
+			for d in devs:
+				if d != torch.device('cpu'):
+					self.free_memory(extra_mem, d, models_loaded)
+			return
+
+		total_mem_required = {}
+		for loaded_model in models_to_load:
+			self.unload_model_clones(loaded_model)
+			total_mem_required[loaded_model.load_device] = total_mem_required.get(loaded_model.load_device, 0) + loaded_model.memory_required(loaded_model.load_device)
+
+		for device in total_mem_required:
+			if device != torch.device('cpu'):
+				self.free_memory((total_mem_required[device] * 1.3 + extra_mem, device, models_loaded)
+
+		for loaded_model in models_to_load:
+			load_device = loaded_model.load_device
+			if load_device == torch.device('cpu'):
+				vram_set_state = VramState.DISABLED
+			else:
+				vram_set_state = _utils.vram_state
+			low_vram_model_mem = 0
+			if _utils.low_vram_available and (vram_set_state = _utils.VramState.LOW_VRAM
+					or vram_set_state == _utils.VramState.NORMAL_VRAM):
+				model_size = loaded_model.memory_required(load_device)
+				cur_free_mem = _utils.get_free_memory(load_device)
+				low_vram_model_mem = int(max(256 * 1024 * 1024, (cur_free_mem - 1024 * (1024 * 1024)) / 1.3))
+				if model_size > (cur_free_mem = inference_mem):
+					vram_set_state = utils.VramState.LOW_VRAM
+				else:
+					low_vram_model_mem = 0
+			if vram_set_state == _utils.VramState.NO_VRAM:
+				low_vram_model_mem = 256 * 1024 * 1024
+
+			cur_loaded_model = loaded_model.load_model(low_vram_model_mem)
+			self.loaded_models.indert(0, loaded_model)
+		return
+
+	def load_model_gpu(self, model_name):
+		return self.load_models_gpu([model])
+
+	def cleanup_models(self):
+		to_delete = []
+		for i in range(len(current_loaded_models)):
+			if sys.getrefcount(current_loaded_models[i].model) <= 2:
+				to_delete = [i] + to_delete
+
+		for i in to_delete:
+			x = current_loaded_models.pop(i)
+			x.model_unload()
+			del x
+
 
 
 
