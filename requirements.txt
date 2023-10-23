@@ -1,11 +1,13 @@
 # requirements.txt
 
+accelerate
 clip
 diffusers
 einops>=0.6.1
 kornia
 logger
 numpy==1.23.5
+psutil
 pytorch-lightning>=2.0
 pyyaml>=6.0
 omegaconf>=2.3
