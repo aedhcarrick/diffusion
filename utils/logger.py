@@ -89,7 +89,7 @@ default_config = {
 	},
 
 	"root": {
-		"level": "INFO",
+		"level": "DEBUG",
 		"handlers": ["console"],
 	}
 }
@@ -126,26 +126,25 @@ def setup_logging(
 
 	if dict_config is not None:
 		if args.debug:
-			dict_config['root']['level'] = "DEBUG"
-		if args.verbose:
 			dict_config['handlers']['console']['level'] = "DEBUG"
+		if args.verbose:
+			dict_config['handlers']['console']['level'] = "INFO"
 		if args.log:
 			dict_config['root']['handlers'].append('local_file_handler')
 		logging.config.dictConfig(dict_config)
 	else:
 		logging.basicConfig(level=default_level)
 
-Logger = logging.getLogger
 
 #	For Testing  #######################################################
 class FakeClassForLogger():
 	def __init__(self):
-		self.log = Logger(".".join([__name__, self.__class__.__name__]))
+		self.log = logging.getLogger(".".join([__name__, self.__class__.__name__]))
 		self.log.addFilter(ThreadContextFilter())
 		self.log.info(f'Instance of {self.__class__.__name__} created.')
 
 def test_logger():
-	log = Logger(__name__)
+	log = logging.getLogger(__name__)
 	setup_logging()
 	log.debug("Debug Message")
 	log.info("Info Message")
@@ -155,5 +154,10 @@ def test_logger():
 
 	fake = FakeClassForLogger()
 
+
 if __name__ == '__main__':
 	test_logger()
+else:
+	setup_logging()
+
+

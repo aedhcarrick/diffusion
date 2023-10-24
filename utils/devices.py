@@ -1,17 +1,23 @@
-#  managers/device_manager.py
+#  utils/devices.py
 
 
-from utils.args import args
-from utils.logger import Logger, ThreadContextFilter
+#
+#	adapted from https://github.com/comfyanonymous/confyui
+#	-->GPLv3
+#
 
 
-log = Logger(__name__)
+import logging
+from utils.logger import ThreadContextFilter
+
+
+log = logging.getLogger(__name__)
 log.addFilter(ThreadContextFilter())
-
-log.info(f'Initializing device..')
+log.info(f'Initializing devices..')
 
 
 from enum import Enum
+
 
 class VRAMSTATE(Enum):
 	NONE = 0
@@ -34,11 +40,30 @@ import torch
 
 use_device = DEVICE.GPU
 vram_state = VRAMSTATE.NORMAL
-low_vram = True
+low_vram_ok = True
 directml_enabled = False
 xpu_available = False
 torch_device = None
 
+
+def get_device_name(device):
+	if hasattr(device, 'type'):
+		if device.type == "cuda":
+			try:
+				allocator_backend = torch.cuda.get_allocator_backend()
+			except:
+				allocator_backend = ""
+			return "{} {} : {}".format(device, torch.cuda.get_device_name(device), allocator_backend)
+		else:
+			return "{}".format(device.type)
+	elif use_device == DEVICE.XPU:
+		return "{} {}".format(device, torch.xpu.get_device_name(device))
+	else:
+		return "CUDA {}: {}".format(device, torch.cuda.get_device_name(device))
+
+#	get torch device
+
+from utils.args import args
 
 if args.directml is not None:
 	import torch_directml
@@ -49,6 +74,7 @@ if args.directml is not None:
 	else:
 		torch_device = torch_directml.device(index)
 		log.info(f'Directml enabled: {torch_directml.device_name(index)}')
+		low_vram_ok = False
 else:
 	try:
 		import intel_extension_for_pytorch as ipex
@@ -68,9 +94,9 @@ if args.novram:
 	set_vram_to = VRAMSTATE.NONE
 elif args.lowvram:
 	set_vram_to = VRAMSTATE.LOW
-	lowvram_available = True
 elif args.highvram:
 	set_vram_to = VRAMSTATE.HIGH
+	low_vram_ok = False
 else:
 	set_vram_to = VRAMSTATE.NORMAL
 
@@ -85,8 +111,16 @@ if not directml_enabled:
 		torch_device = torch.device('xpu')
 	elif use_device == DEVICE.CPU:
 		torch_device = torch.device('cpu')
+		low_vram_ok = False
 	else:
-		torch_device = torch.device(torch.cuda.current_device())
+		if torch.cuda.is_available():
+			torch_device = torch.device(torch.cuda.current_device())
+		else:
+			use_device = DEVICE.CPU
+			torch_device = torch.device('cpu')
+	log.info(f'Using torch device:  {get_device_name(torch_device)}')
+
+#	get total memory resources
 
 def get_total_memory(device=None):
 	if device == None:
@@ -128,12 +162,14 @@ total_vram = get_total_memory() / (1024 * 1024)
 
 log.info("Total VRAM {:0.0f} MB, total RAM {:0.0f} MB".format(total_vram, total_ram))
 
+#	set vram state
+
 if not args.normalvram and use_device is not DEVICE.CPU:
-	if lowvram and total_vram <= 4096:
+	if low_vram_ok and total_vram <= 4096:
 		log.info('Enabling low vram mode..')
 		set_vram_to = VRAMSTATE.LOW
 
-if lowvram:
+if low_vram_ok:
 	try:
 		import accelerate
 		if set_vram_to in (VRAMSTATE.LOW, VRAMSTATE.NONE):
@@ -142,14 +178,16 @@ if lowvram:
 		import traceback
 		print(traceback.format_exc())
 		log.error(f'LOW VRAM MODE NEEDS accelerate.')
-		lowvram_available = False
+		low_vram_ok = False
 
-if prefered_device == Device.MPS:
-	vram_state = VramState.SHARED
-elif prefered_device != Device.GPU:
+if use_device == DEVICE.MPS:
+	vram_state = VRAMSTATE.SHARED
+elif use_device != DEVICE.GPU:
 	vram_state = VRAMSTATE.NONE
 
 log.info(f"Set vram state to: {vram_state.name}")
+
+#	check for xformers and pytorch attention
 
 XFORMERS_VERSION = ""
 XFORMERS_ENABLED_VAE = True
@@ -198,6 +236,7 @@ if ENABLE_PYTORCH_ATTENTION:
 	torch.backends.cuda.enable_flash_sdp(True)
 	torch.backends.cuda.enable_mem_efficient_sdp(True)
 
+#	set vae dtype
 
 FORCE_FP32 = False
 FORCE_FP16 = False
@@ -210,28 +249,9 @@ elif args.force_fp16:
 if use_device == DEVICE.XPU:
 	VAE_DTYPE = torch.bfloat16
 
-def get_device_name(device):
-	if hasattr(device, 'type'):
-		if device.type == "cuda":
-			try:
-				allocator_backend = torch.cuda.get_allocator_backend()
-			except:
-				allocator_backend = ""
-			return "{} {} : {}".format(device, torch.cuda.get_device_name(device), allocator_backend)
-		else:
-			return "{}".format(device.type)
-	elif use_device == DEVICE.XPU:
-		return "{} {}".format(device, torch.xpu.get_device_name(device))
-	else:
-		return "CUDA {}: {}".format(device, torch.cuda.get_device_name(device))
-
 log.info(f'VAE dtype: {VAE_DTYPE}')
 
-def dtype_size(dtype):
-	dtype_size = 4
-	if dtype == torch.float16 or dtype == torch.bfloat16:
-		dtype_size = 2
-	return dtype_size
+# set model load and offload targets
 
 if vram_state == VRAMSTATE.HIGH:
 	unet_offload_device = torch_device
@@ -247,6 +267,8 @@ else:
 	vae_offload_device = torch.device('cpu')
 
 vae_load_device = torch_device
+
+#	helper functions
 
 def unet_dtype(device=None, model_params=0):
 	if should_use_fp16(device=device, model_params=model_params):
@@ -379,7 +401,6 @@ def resolve_lowvram_weight(weight, model, key):
 		weight = op._hf_hook.weights_map[key_split[-1]]
 	return weight
 '''
-
 
 
 
