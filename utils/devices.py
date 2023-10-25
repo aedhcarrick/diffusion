@@ -270,8 +270,8 @@ vae_load_device = torch_device
 
 #	helper functions
 
-def unet_dtype(device=None, model_params=0):
-	if should_use_fp16(device=device, model_params=model_params):
+def unet_dtype(model_params=0):
+	if should_use_fp16(model_params=model_params):
 		return torch.float16
 	return torch.float32
 
@@ -342,7 +342,7 @@ def maximum_batch_area():
 		area = ((memory_free - 1024) * 0.9) / (0.6)
 	return int(max(area, 0))
 
-def should_use_fp16(device=None, model_params=0, prioritize_performance=True):
+def should_use_fp16(model_params=0, prioritize_performance=True):
 	global directml_enabled
 	if (directml_enabled or use_device == DEVICE.CPU or use_device == DEVICE.MPS):
 		return False

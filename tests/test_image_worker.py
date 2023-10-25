@@ -1,33 +1,12 @@
-# test_image_worker.py
+# test_model_manager.py
 
-from image_worker.image_worker import ImageWorker
+from manager.model_manager import ModelManager
 
 
 def test_simple_job():
-	input_dir = 'inputs'
-	output_dir = 'outputs'
-	model_dir = 'models'
-	worker = ImageWorker(input_dir, output_dir, model_dir)
+	mm = ModelManager()
+	mm.load_model('deliberate_v3.safetensors')
+	assert(mm.model.is_loaded())
+	assert(mm.clip.is_loaded())
+	assert(mm.vae.is_loaded())
 
-	worker.start()
-
-	job = {
-		"job_type": "image",
-		"operations": [
-			{
-			"oper_type": "txt2img",
-			"prompt": "a cow eating nachos",
-			"sampler": "DDIM",
-			"steps": 50,
-			"height": 512,
-			"width": 768,
-			"guidance": 7.5,
-			"seed": 42,
-			"batch_size": 1,
-			}
-		]
-	}
-
-	worker.submit_job(job)
-
-	worker.stop()
