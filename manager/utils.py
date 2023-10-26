@@ -35,8 +35,9 @@ def get_state_dict(ckpt, device=None):
 
 def get_model_base_type(state_dict: dict) -> Literal["sd1", "sd2", "sdxl"]:
 	model_type = None
+	## this function needs work
 	for key in state_dict.keys():
-		if key.startswith("model.encoder"):
+		if key.startswith("model.diffusion_model"):
 			model_type = "sd1"
 			break
 		elif key.startswith("model.transformer"):
@@ -55,7 +56,7 @@ def get_model_config(state_dict: dict, base_type: Literal["sd1", "sd2", "sdxl"])
 	log.error(f'{base_type}-based models are not yet supported.')
 	return None
 
-def load_module_from_config(self, ckpt, config, state_dict):
+def load_model_from_config(ckpt, config, state_dict):
 		model = instantiate_from_config(config.model)
 		m, u = model.load_state_dict(state_dict, strict=False)
 		if len(m) > 0:
