@@ -60,11 +60,11 @@ def load_model_from_config(ckpt, config, state_dict):
 		model = instantiate_from_config(config.model)
 		m, u = model.load_state_dict(state_dict, strict=False)
 		if len(m) > 0:
-			self.log.error(f"missing keys:  {m}")
+			log.error(f"missing keys:  {m}")
 		if len(u) > 0:
-			self.log.error(f"unexpected keys:  {u}")
+			log.error(f"unexpected keys:  {u}")
 		if len(m) + len(u) == 0:
-			self.info(f'All keys matched.')
+			log.info(f'All keys matched.')
 		return model
 
 def get_model(model_name: str, config: Union[None, str] = None):

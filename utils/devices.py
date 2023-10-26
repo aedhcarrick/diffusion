@@ -256,14 +256,14 @@ log.info(f'VAE dtype: {VAE_DTYPE}')
 if vram_state == VRAMSTATE.HIGH:
 	unet_offload_device = torch_device
 	unet_load_device = torch_device
-	text_encoder_offload_device = torch_device
-	text_encoder_device = torch_device
+	clip_offload_device = torch_device
+	clip_load_device = torch_device
 	vae_offload_device = torch_device
 else:
 	unet_offload_device = torch.device('cpu')
 	unet_load_device = torch.device('cpu')
-	text_encoder_offload_device = torch.device('cpu')
-	text_encoder_device = torch.device('cpu')
+	clip_offload_device = torch.device('cpu')
+	clip_load_device = torch.device('cpu')
 	vae_offload_device = torch.device('cpu')
 
 vae_load_device = torch_device

@@ -38,8 +38,9 @@ class BaseModel():
 		return self.current_device == self.load_device
 
 
-class Unet():
+class Unet(BaseModel):
 	def __init__(self, unet, params, base_type, load):
+		super().__init__()
 		self.model = unet
 		self.params = params
 		self.base_type = base_type
@@ -51,8 +52,9 @@ class Unet():
 			self.load()
 
 
-class Clip():
+class Clip(BaseModel):
 	def __init__(self, clip, params, base_type, load):
+		super().__init__()
 		self.model = clip
 		self.params = params
 		self.base_type = base_type
@@ -64,8 +66,9 @@ class Clip():
 			self.load()
 
 
-class Vae():
+class Vae(BaseModel):
 	def __init__(self, vae, params, base_type, load):
+		super().__init__()
 		self.model = vae
 		self.config = params
 		self.base_type = base_type
