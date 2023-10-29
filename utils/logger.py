@@ -7,8 +7,6 @@ import logging
 import logging.config
 import threading
 
-from utils.args import args
-
 
 # custom formatter isn't working?
 
@@ -60,7 +58,7 @@ default_config = {
 	"handlers": {
 		"console": {
 			"class": "logging.StreamHandler",
-			"level": "WARNING",
+			"level": "INFO",
 			"formatter": "basic",
 			"stream": "ext://sys.stdout"
 		},
@@ -103,6 +101,9 @@ class ThreadContextFilter(logging.Filter):
 		return True
 
 
+from utils import parse_config
+args = parse_config.config
+
 def setup_logging(
 		default_log_config=None,
 		default_level=logging.INFO,
@@ -125,12 +126,9 @@ def setup_logging(
 			dict_config = file_config
 
 	if dict_config is not None:
-		if args.debug:
-			dict_config['handlers']['console']['level'] = "DEBUG"
-		if args.verbose:
-			dict_config['handlers']['console']['level'] = "INFO"
-		if args.log:
+		if 'log_file' in args:
 			dict_config['root']['handlers'].append('local_file_handler')
+			dict_config['handlers']['local_file_handler']['filename'] = args['log_file']
 		logging.config.dictConfig(dict_config)
 	else:
 		logging.basicConfig(level=default_level)

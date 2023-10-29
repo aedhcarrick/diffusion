@@ -13,7 +13,10 @@ from utils.logger import ThreadContextFilter
 
 log = logging.getLogger(__name__)
 log.addFilter(ThreadContextFilter())
-log.info(f'Initializing devices..')
+log.info(f'Fetching config..')
+
+from utils import parse_config
+config = parse_config.config
 
 
 from enum import Enum
@@ -38,6 +41,7 @@ import psutil
 import torch
 
 
+log.info(f'Initializing devices..')
 use_device = DEVICE.GPU
 vram_state = VRAMSTATE.NORMAL
 low_vram_ok = True
@@ -62,47 +66,31 @@ def get_device_name(device):
 		return "CUDA {}: {}".format(device, torch.cuda.get_device_name(device))
 
 #	get torch device
-
-from utils.args import args
-
-if args.directml is not None:
+if config['use_directml']:
 	import torch_directml
 	directml_enabled = True
-	index = args.directml
+	index = config['directml']
 	if index < 0:
 		torch_device = torch_directml.device()
 	else:
 		torch_device = torch_directml.device(index)
 		log.info(f'Directml enabled: {torch_directml.device_name(index)}')
 		low_vram_ok = False
-else:
-	try:
-		import intel_extension_for_pytorch as ipex
-		if torch.xpu.is_available():
-			use_device = DEVICE.XPU
-	except Exception:
-		pass
 
-	try:
-		if torch.backends.mps.is_available():
-			import torch.mps
-			use_device = DEVICE.MPS
-	except Exception:
-		pass
+try:
+	import intel_extension_for_pytorch as ipex
+	if torch.xpu.is_available():
+		use_device = DEVICE.XPU
+except Exception:
+	pass
 
-if args.novram:
-	set_vram_to = VRAMSTATE.NONE
-elif args.lowvram:
-	set_vram_to = VRAMSTATE.LOW
-elif args.highvram:
-	set_vram_to = VRAMSTATE.HIGH
-	low_vram_ok = False
-else:
-	set_vram_to = VRAMSTATE.NORMAL
+try:
+	if torch.backends.mps.is_available():
+		import torch.mps
+		use_device = DEVICE.MPS
+except Exception:
+	pass
 
-if args.cpu:
-	use_device = DEVICE.CPU
-	set_vram_to = VRAMSTATE.NONE
 
 if not directml_enabled:
 	if use_device == DEVICE.MPS:
@@ -164,7 +152,7 @@ log.info("Total VRAM {:0.0f} MB, total RAM {:0.0f} MB".format(total_vram, total_
 
 #	set vram state
 
-if not args.normalvram and use_device is not DEVICE.CPU:
+if use_device is not DEVICE.CPU:
 	if low_vram_ok and total_vram <= 4096:
 		log.info('Enabling low vram mode..')
 		set_vram_to = VRAMSTATE.LOW
@@ -191,7 +179,12 @@ log.info(f"Set vram state to: {vram_state.name}")
 
 XFORMERS_VERSION = ""
 XFORMERS_ENABLED_VAE = True
-if args.disable_xformers:
+DISABLE_XFORMERS = False
+
+if 'disable_xformers' in config and config['disable_xformers'] == True:
+	DISABLE_XFORMERS = True
+
+if DISABLE_XFORMERS:
 	XFORMERS_IS_AVAILABLE = False
 else:
 	try:
@@ -211,22 +204,33 @@ else:
 		XFORMERS_IS_AVAILABLE = False
 
 ENABLE_PYTORCH_ATTENTION = False
-if args.use_pytorch_cross_attention:
+USE_PYTORCH_ATTENTION = False
+USE_SPLIT_CROSS_ATTENTION = False
+USE_QUAD_CROSS_ATTENTION = False
+
+if 'use_pytorch_cross_attention' in config and config['use_pytorch_cross_attention'] == True:
+	USE_PYTORCH_ATTENTION = True
+elif 'use_split_cross_attention' in config and config['use_split_cross_attention'] == True:
+	USE_SPLIT_CROSS_ATTENTION = True
+elif 'use_quad_cross_attention' in config and config['use_quad_cross_attention'] == True:
+	USE_QUAD_CROSS_ATTENTION = True
+
+if USE_PYTORCH_ATTENTION:
 	ENABLE_PYTORCH_ATTENTION = True
 	XFORMERS_IS_AVAILABLE = False
 
-VAE_DTYPE = torch.float32
+vae_dtype = torch.float32
 
 try:
 	if (use_device == DEVICE.GPU and torch.version.cuda):
 		torch_version = torch.version.__version__
 		if int(torch_version[0]) >= 2:
-			if ENABLE_PYTORCH_ATTENTION == False and args.use_split_cross_attention == False and args.use_quad_cross_attention == False:
+			if ENABLE_PYTORCH_ATTENTION == False and USE_SPLIT_CROSS_ATTENTION == False and USE_QUAD_CROSS_ATTENTION == False:
 				ENABLE_PYTORCH_ATTENTION = True
 			if torch.cuda.is_bf16_supported():
-				VAE_DTYPE = torch.bfloat16
+				vae_dtype = torch.bfloat16
 	if use_device == DEVICE.XPU:
-		if args.use_split_cross_attention == False and args.use_quad_cross_attention == False:
+		if USE_SPLIT_CROSS_ATTENTION == False and USE_QUAD_CROSS_ATTENTION == False:
 			ENABLE_PYTORCH_ATTENTION = True
 except:
 	pass
@@ -241,15 +245,15 @@ if ENABLE_PYTORCH_ATTENTION:
 FORCE_FP32 = False
 FORCE_FP16 = False
 
-if args.force_fp32:
+if 'force_fp32' in config and config['force_fp32'] == True:
 	FORCE_FP32 = True
-elif args.force_fp16:
+elif 'force_fp16' in config and config['force_fp16'] == True:
 	FORCE_FP16 = True
 
 if use_device == DEVICE.XPU:
-	VAE_DTYPE = torch.bfloat16
+	vae_dtype = torch.bfloat16
 
-log.info(f'VAE dtype: {VAE_DTYPE}')
+log.info(f'VAE dtype: {vae_dtype}')
 
 # set model load and offload targets
 

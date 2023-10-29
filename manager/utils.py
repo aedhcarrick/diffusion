@@ -53,6 +53,8 @@ def get_model_base_type(state_dict: dict) -> Literal["sd1", "sd2", "sdxl"]:
 def get_model_config(state_dict: dict, base_type: Literal["sd1", "sd2", "sdxl"]) -> OmegaConf:
 	if base_type == 'sd1':
 		return OmegaConf.load('configs/stable-diffusion/v1-inference.yaml')
+	if base_type == 'sd2':
+		return OmegaConf.load('configs/stable-diffusion/v2-inference.yaml')
 	log.error(f'{base_type}-based models are not yet supported.')
 	return None
 
