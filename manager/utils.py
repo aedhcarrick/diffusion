@@ -60,6 +60,11 @@ def get_model_config(state_dict: dict, base_type: Literal["sd1", "sd2", "sdxl"])
 
 def load_model_from_config(ckpt, config, state_dict):
 		model = instantiate_from_config(config.model)
+		# for debug
+		print('model keys:')
+		print(model.__dict__.keys())
+		print('state_dict keys')
+		print(state_dict.keys())
 		m, u = model.load_state_dict(state_dict, strict=False)
 		if len(m) > 0:
 			log.error(f"missing keys:  {m}")

@@ -151,6 +151,7 @@ total_vram = get_total_memory() / (1024 * 1024)
 log.info("Total VRAM {:0.0f} MB, total RAM {:0.0f} MB".format(total_vram, total_ram))
 
 #	set vram state
+set_vram_to = VRAMSTATE.NORMAL
 
 if use_device is not DEVICE.CPU:
 	if low_vram_ok and total_vram <= 4096:
