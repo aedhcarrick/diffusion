@@ -7,7 +7,7 @@ default_config = {
 	"normal_vram": True,
 	"low_vram": False,
 	"cpu_only": False,
-	"use_direct_ml": False,
+	"use_directml": False,
 	"directml_device": -1,
 	"force-fp32": False,
 	"force-fp16": False,
@@ -28,9 +28,7 @@ path_to_config = './model_manager.config'
 config = {}
 
 if os.path.exists(path_to_config):
-	log.info(f'Custom config found.')
 	config = OmegaConf.load(path_to_config)
 else:
-	log.info(f'Using default config.')
 	config = default_config
 

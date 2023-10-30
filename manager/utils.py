@@ -37,13 +37,13 @@ def get_model_base_type(state_dict: dict) -> Literal["sd1", "sd2", "sdxl"]:
 	model_type = None
 	## this function needs work
 	for key in state_dict.keys():
-		if key.startswith("model.diffusion_model"):
+		if key.startswith("cond_stage_model.transformer.text_model"):
 			model_type = "sd1"
 			break
-		elif key.startswith("model.transformer"):
+		elif key.startswith("cond_stage_model.model.text_model"):
 			model_type = "sd2"
 			break
-		elif key.startswith("model.embed"):
+		elif key.startswith("conditioner"):  # <--this should work?
 			model_type = "sdxl"
 			break
 	if model_type is None:
@@ -81,7 +81,7 @@ def get_model(model_name: str, config: Union[None, str] = None):
 	model = load_model_from_config(full_path, config, state_dict)
 	if base_type == 'sd1':
 		model_config = config['model']['params']
-		unet = Unet(model.diffusion_model, model_config['unet_config'], base_type, True)
+		unet = Unet(model.get_submodule('model.diffusion_model'), model_config['unet_config'], base_type, True)
 		clip = Clip(model.cond_stage_model, model_config['cond_stage_config'], base_type, True)
 		vae = Vae(model.first_stage_model, model_config['first_stage_config'], base_type, True)
 	else:

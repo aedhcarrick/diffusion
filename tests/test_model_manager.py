@@ -14,7 +14,7 @@ def test_model_load():
 	global model
 	global clip
 	global vae
-	model, clip, vae = mm.load_model('deliberate_v3.safetensors')
+	model, clip, vae = mm.load_model('stable_diffusion_1_5.safetensors')
 	assert(model is not None)
 	assert(model.is_loaded())
 	assert(clip is not None)

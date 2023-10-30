@@ -15,7 +15,6 @@ class ModelManager():
 	def __init__(self):
 		self.log = logging.getLogger(".".join([__name__, self.__class__.__name__]))
 		self.log.addFilter(ThreadContextFilter())
-		self.paths = {}
 		self.model = None
 		self.clip = None
 		self.vae = None

@@ -88,7 +88,7 @@ default_config = {
 
 	"root": {
 		"level": "DEBUG",
-		"handlers": ["console"],
+		"handlers": ["console","local_file_handler"],
 	}
 }
 
