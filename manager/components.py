@@ -64,15 +64,35 @@ import torch
 
 class Latent():
 	def __init__(self, base_type):
-		base_type: Literal['sd1', 'sd2', 'sdxl'] = base_type
-		scale_factor = 1.0
-		samples: Union[None, torch.Tensor] = None
+		self.base_type: Literal['sd1', 'sd2', 'sdxl'] = base_type
+		self.down_sampling = 8
+		self.latent_channels = 4
+		self.samples: Union[None, torch.Tensor] = None
 
 	def generate(self, batch_size: int, width: int, height: int):
 		if batch_size <= 0:
-			log.warning('Batch size must be 1 or greater!')
-		if (width / 8
-		self.samples = torch.zeros([batch_size, 4, height // 8, width // 8])
+			raise ValueError('Batch size must be 1 or greater!')
+		if (width % 8 != 0) or (height % 8 != 0):
+			raise ValueError(f"height and width must be a multiple of 8!")
+		self.samples = torch.zeros(
+				[
+					batch_size,
+					self.latent_channels,
+					height // self.down_sampling,
+					width // self.down_sampling
+				]
+		)
+
+
+from diffusers import (
+	AutoencoderKL,
+	DDIMScheduler,
+	DPMSolverMultistepScheduler,
+	EulerAncestralDiscreteScheduler,
+	EulerDiscreteSchedular,
+	LMSDiscreteScheduler,
+	PNDMScheduler
+)
 
 
 class Sampler():
@@ -85,6 +105,8 @@ class Sampler():
 		pass
 
 
+class Scheduler():
+	def __init__(self):
 
 
 

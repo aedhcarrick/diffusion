@@ -25,10 +25,9 @@ def test_load_model():
 	assert(mm.vae is not None)
 	assert(mm.vae.is_loaded())
 
-def test_sampler():
+def test_txt2img():
 	global mm
-	cond = mm.get_cond(pos_prompt)
-	mm.sample(cond=cond, batch_size=1)
-	assert(mm.sample is not None)
+	images = mm.txt2img(prompt)
+	assert(images is not None)
 
 

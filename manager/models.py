@@ -80,14 +80,17 @@ class Clip(BaseModel):
 		if load:
 			self.load()
 
-	def encode(self, text: str) -> Conditioning:
+	def encode(self, text: str):
 		tokens = self.tokenizer.tokenize_with_weights(text)
 		return self.encode_from_tokens(tokens)
 
-	def encode_from_tokens(self, tokens) -> Conditioning:
+	def encode_from_tokens(self, tokens):
 		if not self.is_loaded():
 			self.load()
 		return self.model.encode_token_weights(tokens)
+
+	def get_learned_conditioning(self, cond):
+		return self.model.get_learned_conditioning(cond)
 
 
 class Vae(BaseModel):
@@ -100,13 +103,14 @@ class Vae(BaseModel):
 		self.offload_device = _dev.vae_offload_device
 		self.load_device = _dev.vae_load_device
 		self.current_device = self.offload_device
+		self.scale_factor = 2 ** (len(self.config['block_out_channels']) - 1)
 		if load:
 			self.load()
 
 	def decode(self, samples):
 		if not self.is_loaded():
 			self.load()
-		x_samples = self.model.decode_first_stage(samples)
+		x_samples = self.model.decode(samples, return_dict=False)
 		x_samples = torch.clamp((x_samples + 1.0) / 2.0, min=0.0, max=1.0)
 		x_samples = x_samples.cpu().permute(0, 2, 3, 1).numpy()
 		x_samples_torch = torch.from_numpy(x_samples).permute(0, 3, 1, 2)
@@ -116,6 +120,18 @@ class Vae(BaseModel):
 			img = Image.fromarray(x_sample.astype(np.uint8))
 			images.append(img)
 		return images
+
+	def enable_slicing(self):
+		self.model.enable_slicing()
+
+	def disable_slicing(self):
+		self.model.disable_slicing()
+
+	def enable_tiling(self):
+		self.model.enable_tiling()
+
+	def disable_tiling(self):
+		self.model disable_tiling()
 
 
 
