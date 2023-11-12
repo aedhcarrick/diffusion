@@ -15,19 +15,13 @@ cfg = 7.5
 denoise = 1.0
 
 
-def test_load_model():
-	global mm
-	mm.load_model('stable_diffusion_v1_5.safetensors')
-	assert(mm.model is not None)
-	assert(mm.model.is_loaded())
-	assert(mm.clip is not None)
-	assert(mm.clip.is_loaded())
-	assert(mm.vae is not None)
-	assert(mm.vae.is_loaded())
-
 def test_txt2img():
 	global mm
-	images = mm.txt2img(prompt)
+	model = mm.get_loaded_model('stable_diffusion_v1_5.safetensors')
+	assert(model is not None)
+	prompt = pos_prompt + ' ### ' + neg_prompt
+	images = mm.txt2img(model, prompt)
 	assert(images is not None)
+	mm.save_images(images)
 
 

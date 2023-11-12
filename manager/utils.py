@@ -10,7 +10,8 @@ log.addFilter(ThreadContextFilter())
 
 
 from ldm.util import instantiate_from_config
-from manager.models import Unet, Clip, Vae
+from manager.models import Unet, Clip, Vae, LoadedModel
+from manager.components import Sampler
 from omegaconf import OmegaConf
 from typing import List, Literal, Optional, Tuple, Union
 from utils.devices import unet_dtype
@@ -79,26 +80,49 @@ def get_model(
 			config: Union[None, str] = None,
 			get_clip: Optional[bool] = True,
 			get_vae: Optional[bool] = True,
-			) -> Tuple[Union[None, Unet], Union[None, Clip], Union[None, Vae]]:
+			) -> LoadedModel:
 	full_path = get_full_path('checkpoints', model_name)
 	if not full_path:
 		log.info(f'Failed to find model: {model_name}')
-		return (None, None, None)
+		return (None)
 	state_dict = get_state_dict(full_path)
 	base_type = get_model_base_type(state_dict)
 	if config is None:
-		config = get_model_config(state_dict, base_type)
+	config = get_model_config(state_dict, base_type)
 	model, m, u = load_model_from_config(full_path, config, state_dict)
+	model_config = config['model']['params']
+	clip_config = model_config.get('cond_stage_config', None)
+	scale_factor = model_config.get('scale_factor', None)
+	vae_config = model_config.get('first_stage_config', None)
+
+	fp16 = False
+	if 'unet_config' in model_config and 'params' in model_config['unet_config']:
+		unet_config = model_config['unet_config']['params']
+		if 'use_fp16' in unet_config:
+			fp16 = unet_config['use_fp16']
+			if fp16:
+				unet_config['dtype'] = torch.float16
+
+	noise_aug_config = None
+	if 'noise_aug_config' in model_config:
+		noise_aug_config = model_config['noise_aug_config']
+
+	model_type = model_base.ModelType.EPS
+	if 'parameterization' in model_config:
+		if model_config['parameterization'] == "v":
+			model_type = model_base.ModelType.V_PREDICTION
+
+	unet = Unet(
+			model_name,
+			base_type,
+			model=model.get_submodule('model.diffusion_model'),
+			params=unet_config,
+	)
+	if fp16:
+		unet.half()
+	clip = None
+	vae = None
 	if base_type == 'sd1':
-		model_config = config['model']['params']
-		unet = Unet(
-				name=model_name,
-				model=model.get_submodule('model.diffusion_model'),
-				params=model_config['unet_config'],
-				base_type=base_type
-		)
-		get_clip = get_clip
-		get_vae = get_vae
 		for key in m:
 			if key.startswith('cond_stage_model'):
 				log.warning(f'Clip not found in checkpoint: {model_name}')
@@ -109,77 +133,85 @@ def get_model(
 				break
 		if get_clip:
 			clip = Clip(
-					name=model_name,
-					model=model.cond_stage_model,
-					params=model_config['cond_stage_config'],
-					base_type=base_type
+					model_name,
+					base_type,
+					model=model.get_submodule('model.cond_stage_model'),
+					params=clip_config,
 			)
-		else:
-			clip = None
 		if get_vae:
 			vae = Vae(
-					name=model_name,
-					model=model.first_stage_model,
-					params=model_config['first_stage_config'],
-					base_type=base_type
+					model_name,
+					base_type,
+					model=model.get_submodule('model.first_stage_config'),
+					params=vae_config,
 			)
-		else:
-			vae = None
 	else:
 		raise ValueError("Unsupported model base type.")
 		log.error(f'Failed to get model: {model_name}')
-	return unet, clip, vae
+	return LoadedModel(
+			model_name,
+			base_type,
+			scale_factor,
+			state_dict=state_dict,
+			unet=unet,
+			clip=clip,
+			vae=vae)
 
-def sample(
-		model,
-		clip,
-		latents,
-		sampler,
-		scheduler,
-		cond,
-		seed,
-		cfg,
-		steps,
-		width,
-		height,
-		batch_size
+def txt2img(
+		self,
+		loaded_model,
+		prompts,
+		clip_skip=None,
+		sampler=None,
+		scheduler=None,
+		seed=42,
+		cfg=7.5,
+		steps=50,
+		width=512,
+		height=512,
+		batch_size=1,
 		):
-	if not model.is_loaded():
-		model.load()
-	if not clip.is_loaded():
-		clip.load()
-	if latents is None:
-		latents = Latent(model.base_type)
-		latents.generate(batch_size,height,width)
+	model = loaded_model.unet.load()
+	clip = loaded_model.clip.load()
+	vae = loaded_model.vae.load()
 
-    data = [batch_size * [cond.prompts]]
-	output = []
+	if clip_skip is not None:
+		self.clip.skip(clip_skip)
+
+	seed_everything(seed)
+
+	latents = loaded_model.generate_empty_latents((batch_size, height, width))
+
+	if sampler is not None:
+		sampler = Sampler(sampler)
+	else:
+		sampler = Sampler('DDIM')
+
+	samples = []
 	with torch.no_grad():
 		with model.ema_scope():
-			all_samples = list()
-			for n in trange(batch_size, desc="Sampling"):
-				for prompts in tqdm(data, desc="data"):
-					uc = None
-					if cond is not None and cfg != 1.0:
-						uc = clip.get_learned_conditioning(batch_size * [""])
-					if isinstance(prompts, tuple):
-						prompts = list(prompts)
-					c = clip.get_learned_conditioning(prompts)
-					shape = latent.samples[n]
+			for i in range(batch_size):
+				latent = latents[i]
+				samples.append(
+						sampler.sample(
+								model,
+								clip,
+								latent,
+								prompts,
+								seed,
+								cfg,
+								steps,
+								width,
+								height,
+								batch_size
+						)
+				)
 
-					samples, _ = sampler.sample(
-							S=steps,
-							conditioning=c,
-							batch_size=batch_size,
-							shape=shape,
-							verbose=False,
-							unconditional_guidance_scale=cfg,
-							unconditional_conditioning=uc,
-							eta=0.0,
-							x_T=None
-					)
-					output.append(samples)
+	output = []
+	for sample in samples:
+		output.append(self.vae.decode(vae, sample))
 	return output
+
 
 
 
