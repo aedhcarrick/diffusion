@@ -41,9 +41,10 @@ def getTokenizer(base_type: Literal['sd1', 'sd2', 'sdxl']) -> Tokenizer:
 
 
 from transformers import CLIPConfig, CLIPModel
+import torch
 
 
-class TextEncoder(torch.nn.module):
+class TextEncoder(torch.nn.Module):
 	pass
 
 
@@ -68,7 +69,7 @@ def getTextEncoder(base_type: Literal['sd1', 'sd2', 'sdxl']) -> TextEncoder:
 		return SDXLTextEncoder()
 
 
-class FirstStageModel(torch.nn.module):
+class FirstStageModel(torch.nn.Module):
 	def __init__(self, state_dict, config):
 		if config is None:
 			ddconfig = {
@@ -95,27 +96,31 @@ class FirstStageModel(torch.nn.module):
 
 
 class SD1FirstStageModel(FirstStageModel):
-	def __init__(self, config):
-		super().__init__(config)
+	def __init__(self, state_dict, config):
+		super().__init__(state_dict, config)
 
 
 class SD2FirstStageModel(FirstStageModel):
-	def __init__(self, config):
-		super().__init__(config)
+	def __init__(self, state_dict, config):
+		super().__init__(state_dict, config)
 
 
 class SDXLFirstStageModel(FirstStageModel):
-	def __init__(self, config):
-		super().__init__(config)
+	def __init__(self, state_dict, config):
+		super().__init__(state_dict, config)
 
 
-def getFirstStageModel(base_type: Literal['sd1', 'sd2', 'sdxl']) -> FirstStageModel:
+def getFirstStageModel(
+			base_type: Literal['sd1', 'sd2', 'sdxl'],
+			state_dict,
+			config
+			) -> FirstStageModel:
 	if base_type == 'sd1':
-		return SD1FirstStageModel()
+		return SD1FirstStageModel(state_dict, config)
 	elif base_type == 'sd2':
-		return SD2FirstStageModel()
+		return SD2FirstStageModel(state_dict, config)
 	elif base_type == 'sdxl':
-		return SDXLFirstStageModel()
+		return SDXLFirstStageModel(state_dict, config)
 
 
 class Conditioning():
@@ -178,10 +183,10 @@ class Sampler():
 			cond,
 			latents,
 			cfg,
-			batch_size
+			batch_size,
 			eta,
 			x_T
-			)
+			):
 		sigmas = self.wrapper.get_sigmas(steps)
 		x = x_T * sigmas[0]
 		data = [batch_size * [prompts]]
@@ -208,20 +213,9 @@ class Sampler():
 		return samples
 
 
-from diffusers import (
-	AutoencoderKL,
-	DDIMScheduler,
-	DPMSolverMultistepScheduler,
-	EulerAncestralDiscreteScheduler,
-	EulerDiscreteSchedular,
-	LMSDiscreteScheduler,
-	PNDMScheduler
-)
-
-
 class Scheduler():
 	def __init__(self):
-
+		pass
 
 
 

@@ -11,8 +11,8 @@ log.addFilter(ThreadContextFilter())
 
 import torch
 import utils.devices as _dev
-from manager.components import Conditioning, Latents
-from manager.components import getTextEncoder, getTokenizer, get
+from manager.components import Conditioning, Latent
+from manager.components import getTextEncoder, getTokenizer, getFirstStageModel
 
 
 class BaseModel():
@@ -52,17 +52,16 @@ class BaseModel():
 
 	def unload(self):
 		if self.is_loaded():
-			self.model.to(self.unload_device)
-			self.current_device = self.unload_device
+			self.model.to(self.offload_device)
+			self.current_device = self.offload_device
 		return self
 
 
 class Unet(BaseModel):
 	def __init__(self, name, base_type, model=None, params=None, load=False):
-		super().__init__(name)
-		self.model = unet
+		super().__init__(name, base_type)
+		self.model = model
 		self.params = params
-		self.base_type = base_type
 		self.dtype = _dev.unet_dtype()
 		self.offload_device = _dev.unet_offload_device
 		self.load_device = _dev.unet_load_device
@@ -108,12 +107,12 @@ class Clip(BaseModel):
 
 
 class Vae(BaseModel):
-	def __init__(self, name, base_type, model=None, params=None, load=False):
+	def __init__(self, name, base_type, model=None, state_dict=None, params=None, load=False):
 		super().__init__(name, base_type)
 		if model is not None:
 			self.model = model
 		else:
-			self.model = getVae(base_type, params)
+			self.model = getFirstStageModel(base_type, params)
 		self.params = params
 		self.dtype = _dev.vae_dtype
 		self.offload_device = _dev.vae_offload_device
@@ -149,7 +148,7 @@ class Vae(BaseModel):
 		self.model.enable_tiling()
 
 	def disable_tiling(self):
-		self.model disable_tiling()
+		self.model.disable_tiling()
 
 
 class LoadedModel():
@@ -159,21 +158,27 @@ class LoadedModel():
 			base_type,
 			scale_factor,
 			state_dict=None,
+			config=None,
 			unet=None,
 			clip=None,
 			vae=None,
 			):
 		self.name = name
 		self.base_type = base_type
-		self.params = state_dict['model']['params']
+		self.state_dict = state_dict
+		self.params = config['model']['params']
 		self.unet = unet
 		self.clip = clip
 		self.vae = vae
 		self.latents = Latent(self.base_type, scale_factor)
 		if self.clip is None:
 			if base_type == 'sd1':
-				params = self.params['cond_state_model']
+				params = self.params['cond_state_config']
 			self.clip = Clip(name, base_type, params=params)
+		if self.vae is None:
+			if base_type == 'sd1':
+				params = self.params['first_stage_config']['params']
+			self.vae = Vae(name, base_type, state_dict=state_dict, params=params)
 
 	def generate_empty_latents(self, batch_size, height, width):
 		return self.latents.generate(

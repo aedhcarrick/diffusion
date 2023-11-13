@@ -75,6 +75,12 @@ def load_model_from_config(ckpt, config, state_dict):
 			log.info(f'All keys matched.')
 		return model, m, u
 
+
+class ModelType(Enum):
+	EPS = "eps"
+	V_PREDICTION = "v_prediction"
+
+
 def get_model(
 			model_name: str,
 			config: Union[None, str] = None,
@@ -88,7 +94,7 @@ def get_model(
 	state_dict = get_state_dict(full_path)
 	base_type = get_model_base_type(state_dict)
 	if config is None:
-	config = get_model_config(state_dict, base_type)
+		config = get_model_config(state_dict, base_type)
 	model, m, u = load_model_from_config(full_path, config, state_dict)
 	model_config = config['model']['params']
 	clip_config = model_config.get('cond_stage_config', None)
@@ -107,10 +113,10 @@ def get_model(
 	if 'noise_aug_config' in model_config:
 		noise_aug_config = model_config['noise_aug_config']
 
-	model_type = model_base.ModelType.EPS
+	model_type = ModelType.EPS
 	if 'parameterization' in model_config:
 		if model_config['parameterization'] == "v":
-			model_type = model_base.ModelType.V_PREDICTION
+			model_type = ModelType.V_PREDICTION
 
 	unet = Unet(
 			model_name,
@@ -135,14 +141,14 @@ def get_model(
 			clip = Clip(
 					model_name,
 					base_type,
-					model=model.get_submodule('model.cond_stage_model'),
+					model=model.get_submodule('cond_stage_model'),
 					params=clip_config,
 			)
 		if get_vae:
 			vae = Vae(
 					model_name,
 					base_type,
-					model=model.get_submodule('model.first_stage_config'),
+					model=model.get_submodule('first_stage_model'),
 					params=vae_config,
 			)
 	else:
@@ -153,12 +159,12 @@ def get_model(
 			base_type,
 			scale_factor,
 			state_dict=state_dict,
+			config=config,
 			unet=unet,
 			clip=clip,
 			vae=vae)
 
 def txt2img(
-		self,
 		loaded_model,
 		prompts,
 		clip_skip=None,
@@ -176,7 +182,7 @@ def txt2img(
 	vae = loaded_model.vae.load()
 
 	if clip_skip is not None:
-		self.clip.skip(clip_skip)
+		clip.skip(clip_skip)
 
 	seed_everything(seed)
 
@@ -209,7 +215,7 @@ def txt2img(
 
 	output = []
 	for sample in samples:
-		output.append(self.vae.decode(vae, sample))
+		output.append(vae.decode(vae, sample))
 	return output
 
 

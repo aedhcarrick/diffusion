@@ -3,10 +3,12 @@
 
 import utils.devices as _dev
 import manager.utils as _utils
+
+import os
 import logging
 
 from utils.logger import ThreadContextFilter
-from utils.path import get_path
+from utils.paths import get_path
 from typing import List, Literal, Union, Tuple
 from manager.models import Unet, Clip, Vae, LoadedModel
 from manager.components import Conditioning, Latent, Sampler, Scheduler
@@ -70,7 +72,7 @@ class ModelManager():
 		output_dir = get_path('output_dir')
 		base_count = len(os.listdir(output_dir))
 		for image in images:
-			image.save(os.path.join(output_dir, f"{base_count:05}.png")
+			image.save(os.path.join(output_dir, f"{base_count:05}.png"))
 			base_count += 1
 
 
